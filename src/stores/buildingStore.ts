@@ -20,9 +20,27 @@ interface BuildingState {
 }
 
 export const useBuildingStore = create<BuildingState>((set, get) => ({
-  building: null,
-  floors: [],
-  activeFloorId: null,
+  building: {
+    id: 'building-1',
+    name: 'Demo Building',
+    address: '123 Demo Street',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  floors: [
+    {
+      id: 'floor-1',
+      buildingId: 'building-1', 
+      name: 'Ground Floor',
+      orderIndex: 0,
+      planImageUrl: '/placeholder.svg',
+      widthPx: 800,
+      heightPx: 600,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ],
+  activeFloorId: 'floor-1',
   
   setBuilding: (building) => set({ building }),
   

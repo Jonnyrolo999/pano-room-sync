@@ -46,8 +46,44 @@ interface FloorplanState {
 }
 
 export const useFloorplanStore = create<FloorplanState>((set, get) => ({
-  rooms: [],
-  panos: [],
+  rooms: [
+    // Mock data for demo
+    {
+      id: 'room-1',
+      floorId: 'floor-1',
+      name: 'Conference Room A',
+      polygon: [[100, 100], [300, 100], [300, 200], [100, 200]],
+      propertiesJson: { type: 'conference', capacity: 12 },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: 'room-2', 
+      floorId: 'floor-1',
+      name: 'Office 101',
+      polygon: [[350, 150], [500, 150], [500, 250], [350, 250]],
+      propertiesJson: { type: 'office', capacity: 4 },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ],
+  panos: [
+    // Mock data for demo
+    {
+      id: 'pano-1',
+      buildingId: 'building-1',
+      floorId: 'floor-1',
+      roomId: 'room-1',
+      nodeId: 'node-001',
+      title: 'Conference Room Entry',
+      fileUrl: '/placeholder.svg',
+      imageUrl: '/placeholder.svg',
+      capturedAt: new Date(),
+      metadataJson: { camera: 'Ricoh Theta V', resolution: '5376x2688' },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ],
   visibilityFilter: 'both',
   selectedRoomId: null,
   selectedPanoId: null,
