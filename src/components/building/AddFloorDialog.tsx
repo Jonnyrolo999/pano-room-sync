@@ -133,7 +133,7 @@ export const AddFloorDialog = ({ open, onOpenChange }: AddFloorDialogProps) => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Floor Plan Upload</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center relative">
                 {formData.planFile ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">{formData.planFile.name}</div>
