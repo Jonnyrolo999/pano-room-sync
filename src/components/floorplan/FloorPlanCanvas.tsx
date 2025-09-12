@@ -134,66 +134,92 @@ export const FloorPlanCanvas = ({
     // Draw floor plan image
     ctx.drawImage(image, 0, 0);
 
-    // Draw room polygons
-    roomPolygons.forEach(polygon => {
-      if (polygon.points.length > 2) {
-        const isSelected = selectedRoomId === polygon.roomId;
-        const isHovered = hoveredItemId === polygon.id;
-        
-        ctx.beginPath();
-        ctx.moveTo(polygon.points[0].x, polygon.points[0].y);
-        polygon.points.slice(1).forEach(point => {
-          ctx.lineTo(point.x, point.y);
-        });
-        ctx.closePath();
-        
-        // Enhanced visual differentiation
-        if (isSelected) {
-          // Selected: solid fill, thicker stroke, glow effect
-          ctx.fillStyle = "hsl(var(--primary) / 0.15)";
-          ctx.fill();
+    // Draw room polygons (only if visible based on filter)
+    if (interactionFilter === 'rooms' || interactionFilter === 'both') {
+      roomPolygons.forEach(polygon => {
+        if (polygon.points.length > 2) {
+          const isSelected = selectedRoomId === polygon.roomId;
+          const isHovered = hoveredItemId === polygon.id;
           
-          // Glow effect
-          ctx.shadowColor = "hsl(var(--primary) / 0.4)";
-          ctx.shadowBlur = 8 / zoom;
-          ctx.strokeStyle = "hsl(var(--primary))";
-          ctx.lineWidth = 3 / zoom;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.moveTo(polygon.points[0].x, polygon.points[0].y);
+          polygon.points.slice(1).forEach(point => {
+            ctx.lineTo(point.x, point.y);
+          });
+          ctx.closePath();
           
-          // Selection label chip at centroid
-          const centerX = polygon.points.reduce((sum, p) => sum + p.x, 0) / polygon.points.length;
-          const centerY = polygon.points.reduce((sum, p) => sum + p.y, 0) / polygon.points.length;
-          
-          ctx.fillStyle = "hsl(var(--primary))";
-          ctx.font = `${10 / zoom}px system-ui`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillRect(centerX - 30 / zoom, centerY - 8 / zoom, 60 / zoom, 16 / zoom);
-          ctx.fillStyle = "hsl(var(--primary-foreground))";
-          ctx.fillText(`Room: ${polygon.roomId}`, centerX, centerY);
-        } else if (isHovered) {
-          // Hovered: lighter fill, glow
-          ctx.fillStyle = "hsl(var(--primary) / 0.08)";
-          ctx.fill();
-          
-          ctx.shadowColor = "hsl(var(--primary) / 0.2)";
-          ctx.shadowBlur = 6 / zoom;
-          ctx.strokeStyle = "hsl(var(--primary) / 0.8)";
-          ctx.lineWidth = 2.5 / zoom;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-        } else {
-          // Default: semi-transparent fill
-          ctx.fillStyle = "hsl(var(--primary) / 0.06)";
-          ctx.fill();
-          
-          ctx.strokeStyle = "hsl(var(--primary) / 0.6)";
-          ctx.lineWidth = 2 / zoom;
-          ctx.stroke();
+          // Brand-friendly polygon styling
+          if (isSelected) {
+            // Selected: clear fill, solid stroke with glow
+            ctx.fillStyle = "#2563eb"; // Blue-600 with transparency
+            ctx.globalAlpha = 0.28;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            // Glow effect
+            ctx.shadowColor = "#2563eb";
+            ctx.shadowBlur = 8 / zoom;
+            ctx.strokeStyle = "#1d4ed8"; // Blue-700
+            ctx.lineWidth = 3 / zoom;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Selection label chip at centroid
+            const centerX = polygon.points.reduce((sum, p) => sum + p.x, 0) / polygon.points.length;
+            const centerY = polygon.points.reduce((sum, p) => sum + p.y, 0) / polygon.points.length;
+            
+            // Count panos in this room
+            const panoCount = panoMarkers.filter(m => m.roomId === polygon.roomId).length;
+            
+            ctx.fillStyle = "#1d4ed8";
+            ctx.font = `${10 / zoom}px system-ui`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            const labelText = `Room: ${polygon.roomId}${panoCount > 0 ? ` · ${panoCount} panos` : ''}`;
+            const textWidth = ctx.measureText(labelText).width;
+            const chipWidth = Math.max(textWidth + 16 / zoom, 60 / zoom);
+            
+            // Rounded chip background
+            const chipX = centerX - chipWidth / 2;
+            const chipY = centerY - 8 / zoom;
+            ctx.beginPath();
+            ctx.roundRect(chipX, chipY, chipWidth, 16 / zoom, 8 / zoom);
+            ctx.fill();
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(labelText, centerX, centerY);
+          } else if (isHovered) {
+            // Hovered: slightly more fill, dashed stroke
+            ctx.fillStyle = "#93c5fd"; // Blue-300
+            ctx.globalAlpha = 0.22;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            ctx.shadowColor = "#2563eb";
+            ctx.shadowBlur = 6 / zoom;
+            ctx.strokeStyle = "#2563eb";
+            ctx.lineWidth = 3 / zoom;
+            ctx.setLineDash([4 / zoom, 2 / zoom]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+          } else {
+            // Default: faint brand-friendly fill
+            ctx.fillStyle = "#93c5fd"; // Blue-300
+            ctx.globalAlpha = 0.15;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            ctx.strokeStyle = "#2563eb"; // Blue-600
+            ctx.globalAlpha = 0.8;
+            ctx.lineWidth = 2 / zoom;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
         }
-      }
-    });
+      });
+    }
 
     // Draw grid if enabled
     if (snapToGrid && gridSize > 0) {
@@ -264,66 +290,78 @@ export const FloorPlanCanvas = ({
       }
     }
 
-    // Draw panorama markers
-    panoMarkers.forEach(marker => {
-      const isSelected = selectedPanoId === marker.panoId;
-      const isHovered = hoveredItemId === marker.id;
-      
-      // Enhanced marker styling
-      if (isSelected) {
-        // Selected: larger size, ring, chip
+    // Draw panorama markers (only if visible based on filter)
+    if (interactionFilter === 'panos' || interactionFilter === 'both') {
+      panoMarkers.forEach(marker => {
+        const isSelected = selectedPanoId === marker.panoId;
+        const isHovered = hoveredItemId === marker.id;
+        
+        // Enhanced marker styling with distinct secondary color
+        if (isSelected) {
+          // Selected: larger size, ring, chip
+          ctx.beginPath();
+          ctx.arc(marker.x, marker.y, 12 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = "#f59e0b"; // Amber-500 for distinction
+          ctx.fill();
+          
+          // Selection ring
+          ctx.beginPath();
+          ctx.arc(marker.x, marker.y, 16 / zoom, 0, Math.PI * 2);
+          ctx.strokeStyle = "#92400e"; // Amber-800
+          ctx.lineWidth = 3 / zoom;
+          ctx.stroke();
+          
+          // Selection chip above marker
+          ctx.fillStyle = "#f59e0b";
+          ctx.font = `${9 / zoom}px system-ui`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          const chipY = marker.y - 25 / zoom;
+          
+          // Get timestamp or short ID
+          const labelText = `Pano: ${marker.panoData?.title || marker.panoId.slice(-6)}`;
+          const textWidth = ctx.measureText(labelText).width;
+          const chipWidth = Math.max(textWidth + 12 / zoom, 50 / zoom);
+          
+          // Rounded chip background
+          ctx.beginPath();
+          ctx.roundRect(marker.x - chipWidth / 2, chipY - 12 / zoom, chipWidth, 14 / zoom, 6 / zoom);
+          ctx.fill();
+          
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(labelText, marker.x, chipY);
+        } else if (isHovered) {
+          // Hovered: slightly larger, glow
+          ctx.shadowColor = "#f59e0b";
+          ctx.shadowBlur = 6 / zoom;
+          ctx.beginPath();
+          ctx.arc(marker.x, marker.y, 10 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = "#f59e0b";
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          ctx.strokeStyle = "#92400e";
+          ctx.lineWidth = 2 / zoom;
+          ctx.stroke();
+        } else {
+          // Default: standard marker
+          ctx.beginPath();
+          ctx.arc(marker.x, marker.y, 8 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = "#f59e0b"; // Amber-500
+          ctx.fill();
+          
+          ctx.strokeStyle = "#92400e"; // Amber-800
+          ctx.lineWidth = 2 / zoom;
+          ctx.stroke();
+        }
+        
+        // Inner dot
         ctx.beginPath();
-        ctx.arc(marker.x, marker.y, 12 / zoom, 0, Math.PI * 2);
-        ctx.fillStyle = "hsl(var(--secondary))";
+        ctx.arc(marker.x, marker.y, 3 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = "#92400e";
         ctx.fill();
-        
-        // Selection ring
-        ctx.beginPath();
-        ctx.arc(marker.x, marker.y, 16 / zoom, 0, Math.PI * 2);
-        ctx.strokeStyle = "hsl(var(--secondary-foreground))";
-        ctx.lineWidth = 3 / zoom;
-        ctx.stroke();
-        
-        // Selection chip above marker
-        ctx.fillStyle = "hsl(var(--secondary))";
-        ctx.font = `${9 / zoom}px system-ui`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-        const chipY = marker.y - 25 / zoom;
-        ctx.fillRect(marker.x - 35 / zoom, chipY - 12 / zoom, 70 / zoom, 14 / zoom);
-        ctx.fillStyle = "hsl(var(--secondary-foreground))";
-        ctx.fillText(`Pano: ${marker.panoId}`, marker.x, chipY);
-      } else if (isHovered) {
-        // Hovered: slightly larger, glow
-        ctx.shadowColor = "hsl(var(--secondary) / 0.4)";
-        ctx.shadowBlur = 6 / zoom;
-        ctx.beginPath();
-        ctx.arc(marker.x, marker.y, 10 / zoom, 0, Math.PI * 2);
-        ctx.fillStyle = "hsl(var(--secondary))";
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        
-        ctx.strokeStyle = "hsl(var(--secondary-foreground))";
-        ctx.lineWidth = 2 / zoom;
-        ctx.stroke();
-      } else {
-        // Default: standard marker
-        ctx.beginPath();
-        ctx.arc(marker.x, marker.y, 8 / zoom, 0, Math.PI * 2);
-        ctx.fillStyle = "hsl(var(--secondary))";
-        ctx.fill();
-        
-        ctx.strokeStyle = "hsl(var(--secondary-foreground))";
-        ctx.lineWidth = 2 / zoom;
-        ctx.stroke();
-      }
-      
-      // Inner dot
-      ctx.beginPath();
-      ctx.arc(marker.x, marker.y, 3 / zoom, 0, Math.PI * 2);
-      ctx.fillStyle = "hsl(var(--secondary-foreground))";
-      ctx.fill();
-    });
+      });
+    }
 
     // Restore context
     ctx.restore();

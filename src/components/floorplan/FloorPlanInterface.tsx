@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { FloorPlanCanvas } from "./FloorPlanCanvas";
 import { PanoramaViewer } from "../viewer/PanoramaViewer";
+import { MiniMapCard } from "./MiniMapCard";
+import { PanoViewerCard } from "./PanoViewerCard";
+import { ContextInfoCard } from "./ContextInfoCard";
 
 interface Room {
   id: string;
@@ -440,9 +443,117 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   }
 
   return (
-    <div className="h-full flex">
-      {/* Split Screen Layout */}
-      <div className="flex-1 flex flex-col">
+    <div className="h-full flex min-h-0">
+      {/* Left Canvas - 3/5 width */}
+      <div className="basis-3/5 min-w-0 flex flex-col">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between p-4 border-b bg-background">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={activeTool === "select" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("select")}
+              title="Select and edit polygons"
+            >
+              <MousePointer2 className="h-4 w-4 mr-1" />
+              Select
+            </Button>
+            <Button
+              variant={activeTool === "draw" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("draw")}
+              title="Draw room polygons"
+            >
+              ⬟ Draw Room
+            </Button>
+            <Button
+              variant={activeTool === "dropPano" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("dropPano")}
+              title="Drop panorama markers"
+            >
+              <MapPin className="h-4 w-4 mr-1" />
+              Drop Pano
+            </Button>
+            
+            <div className="h-6 w-px bg-border mx-2" />
+
+            {/* Visibility Filter */}
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              <Button
+                variant={interactionFilter === "rooms" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInteractionFilter("rooms")}
+                title="Show rooms only"
+              >
+                <Square className="h-3 w-3" />
+              </Button>
+              <Button
+                variant={interactionFilter === "panos" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInteractionFilter("panos")}
+                title="Show panos only"
+              >
+                ●
+              </Button>
+              <Button
+                variant={interactionFilter === "both" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInteractionFilter("both")}
+                title="Show both layers"
+              >
+                Both
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <FloorPlanCanvas
+          floorPlan={floorPlan}
+          activeTool={activeTool}
+          roomPolygons={roomPolygons}
+          panoMarkers={panoMarkers}
+          onAddPolygon={handleAddPolygon}
+          onAddPanoMarker={handleAddPanoMarker}
+          onRoomClick={handleRoomClick}
+          onPanoClick={handlePanoClick}
+          onUpdatePolygon={handleUpdatePolygon}
+          snapToGrid={snapToGrid}
+          gridSize={gridSize}
+          interactionFilter={interactionFilter}
+          selectedRoomId={selectedRoomId}
+          selectedPanoId={selectedPanoId}
+          hoveredItemId={hoveredItemId}
+          onHoverItem={setHoveredItemId}
+        />
+      </div>
+
+      {/* Right Panel - All-in-One Viewer */}
+      <div className="basis-2/5 min-w-0 flex flex-col gap-3 p-3 bg-neutral-50 dark:bg-neutral-900 overflow-y-auto">
+        <MiniMapCard
+          floorPlan={floorPlan}
+          roomPolygons={roomPolygons}
+          panoMarkers={panoMarkers}
+          selectedRoomId={selectedRoomId}
+          selectedPanoId={selectedPanoId}
+          onRoomClick={handleRoomClick}
+          onPanoClick={handlePanoClick}
+        />
+        <PanoViewerCard
+          selectedPanoId={selectedPanoId}
+          panoramas={panoramas}
+        />
+        <ContextInfoCard
+          selectedRoomId={selectedRoomId}
+          selectedPanoId={selectedPanoId}
+          rooms={rooms}
+          panoramas={panoramas}
+          panoMarkers={panoMarkers}
+        />
+      </div>
+    </div>
+  );
         {/* Toolbar */}
         <div className="flex items-center justify-between p-4 border-b bg-background">
           <div className="flex items-center gap-2">
