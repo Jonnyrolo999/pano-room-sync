@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, Square, MapPin, Save, Trash2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Upload, Square, MapPin, Save, Trash2, ZoomIn, ZoomOut, RotateCcw, MousePointer2, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,6 +66,8 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [selectedPanoId, setSelectedPanoId] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [gridSize, setGridSize] = useState(25);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,16 +113,25 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
 
   const convertPdfToImage = async (arrayBuffer: ArrayBuffer): Promise<string> => {
     try {
-      // Dynamic import to handle PDF.js
+      // Dynamic import to handle PDF.js with proper worker setup
       const pdfjsLib = await import('pdfjs-dist');
       
-      // Set worker path
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      // Use bundled worker (works better in Vite)
+      const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.js?url');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
       
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        // Disable worker streaming for better compatibility
+        useSystemFonts: true,
+        standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`
+      }).promise;
+      
       const page = await pdf.getPage(1); // Get first page
       
-      const viewport = page.getViewport({ scale: 2.0 });
+      // Higher DPI for crisp rendering
+      const scale = 2.5; // ~200 DPI
+      const viewport = page.getViewport({ scale });
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       
@@ -129,16 +140,49 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-        canvas: canvas
-      }).promise;
+      // White background for better contrast
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
       
-      return canvas.toDataURL('image/png');
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+          canvas: canvas
+        }).promise;
+      
+      console.log(`PDF rendered successfully: ${canvas.width}x${canvas.height} at ${scale}x scale`);
+      return canvas.toDataURL('image/png', 0.95);
     } catch (error) {
       console.error("PDF conversion error:", error);
-      throw new Error("Failed to convert PDF to image");
+      // Fallback: try without worker for simple cases
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+        
+        const pdf = await pdfjsLib.getDocument({ 
+          data: arrayBuffer
+        }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 });
+        
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d')!;
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        await page.render({ 
+          canvasContext: context, 
+          viewport,
+          canvas: canvas
+        }).promise;
+        return canvas.toDataURL('image/png', 0.95);
+      } catch (fallbackError) {
+        console.error("PDF fallback conversion failed:", fallbackError);
+        throw new Error("Failed to convert PDF to image. Please try uploading as JPG/PNG instead.");
+      }
     }
   };
 
@@ -200,6 +244,12 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
     onPanoSelect?.(panoId);
     toast.info(`Opened panorama ${panoId}`);
   }, [onPanoSelect]);
+
+  const handleUpdatePolygon = useCallback((polygonId: string, points: { x: number; y: number }[]) => {
+    setRoomPolygons(prev => prev.map(polygon => 
+      polygon.id === polygonId ? { ...polygon, points } : polygon
+    ));
+  }, []);
 
   const handleDeletePolygon = useCallback((id: string) => {
     setRoomPolygons(prev => prev.filter(p => p.id !== id));
@@ -351,6 +401,89 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
     <div className="h-full flex">
       {/* Tools Panel */}
       <div className="w-80 border-r bg-background p-4 space-y-4 overflow-y-auto">
+        {/* Main Toolbar */}
+        <div>
+          <h3 className="font-semibold mb-3">Drawing Tools</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant={activeTool === "select" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("select")}
+            >
+              <MousePointer2 className="h-4 w-4 mr-1" />
+              Select
+            </Button>
+            <Button
+              variant={activeTool === "polygon" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("polygon")}
+            >
+              ⬟ Polygon
+            </Button>
+            <Button
+              variant={activeTool === "rectangle" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("rectangle")}
+            >
+              <Square className="h-4 w-4 mr-1" />
+              Rectangle
+            </Button>
+            <Button
+              variant={activeTool === "pano" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("pano")}
+            >
+              <MapPin className="h-4 w-4 mr-1" />
+              Panorama
+            </Button>
+          </div>
+        </div>
+
+        {/* Grid Controls */}
+        <div>
+          <h4 className="font-medium mb-2">Grid & Snapping</h4>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Snap to Grid</span>
+              <Button
+                size="sm"
+                variant={snapToGrid ? "default" : "outline"}
+                onClick={() => setSnapToGrid(!snapToGrid)}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+            </div>
+            {snapToGrid && (
+              <div>
+                <Label htmlFor="grid-size">Grid Size (px)</Label>
+                <div className="flex gap-1 mt-1">
+                  <Button
+                    size="sm"
+                    variant={gridSize === 10 ? "default" : "outline"}
+                    onClick={() => setGridSize(10)}
+                  >
+                    10
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={gridSize === 25 ? "default" : "outline"}
+                    onClick={() => setGridSize(25)}
+                  >
+                    25
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={gridSize === 50 ? "default" : "outline"}
+                    onClick={() => setGridSize(50)}
+                  >
+                    50
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div>
           <h3 className="font-semibold mb-2">Floor Plan Tools</h3>
           <div className="grid grid-cols-2 gap-2">
@@ -502,6 +635,9 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
           onAddPanoMarker={handleAddPanoMarker}
           onRoomClick={handleRoomClick}
           onPanoClick={handlePanoClick}
+          onUpdatePolygon={handleUpdatePolygon}
+          snapToGrid={snapToGrid}
+          gridSize={gridSize}
         />
       </div>
     </div>

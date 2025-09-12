@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { ZoomIn, ZoomOut, RotateCcw, Move } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, Move, Square, Grid3X3, MousePointer2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface FloorPlan {
@@ -36,6 +36,9 @@ interface FloorPlanCanvasProps {
   onAddPanoMarker: (x: number, y: number) => void;
   onRoomClick: (roomId: string) => void;
   onPanoClick: (panoId: string) => void;
+  onUpdatePolygon: (polygonId: string, points: { x: number; y: number }[]) => void;
+  snapToGrid: boolean;
+  gridSize: number;
 }
 
 export const FloorPlanCanvas = ({
@@ -46,7 +49,10 @@ export const FloorPlanCanvas = ({
   onAddPolygon,
   onAddPanoMarker,
   onRoomClick,
-  onPanoClick
+  onPanoClick,
+  onUpdatePolygon,
+  snapToGrid,
+  gridSize
 }: FloorPlanCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,6 +65,9 @@ export const FloorPlanCanvas = ({
   const [currentPolygon, setCurrentPolygon] = useState<{ x: number; y: number }[]>([]);
   const [isDrawingRect, setIsDrawingRect] = useState(false);
   const [rectStart, setRectStart] = useState<{ x: number; y: number } | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isEditingPolygon, setIsEditingPolygon] = useState<string | null>(null);
+  const [dragVertex, setDragVertex] = useState<{ polygonId: string; vertexIndex: number } | null>(null);
 
   // Initialize canvas and load image
   useEffect(() => {
@@ -81,18 +90,7 @@ export const FloorPlanCanvas = ({
       if (container) {
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
-        
-        // Calculate initial zoom to fit image
-        const scaleX = canvas.width / img.width;
-        const scaleY = canvas.height / img.height;
-        const initialZoom = Math.min(scaleX, scaleY) * 0.9;
-        setZoom(initialZoom);
-        
-        // Center the image
-        setPan({
-          x: (canvas.width - img.width * initialZoom) / 2,
-          y: (canvas.height - img.height * initialZoom) / 2
-        });
+        fitToScreen(img, canvas);
       }
     };
     
@@ -147,6 +145,29 @@ export const FloorPlanCanvas = ({
       }
     });
 
+    // Draw grid if enabled
+    if (snapToGrid && gridSize > 0) {
+      ctx.strokeStyle = "#e5e5e5";
+      ctx.lineWidth = 1 / zoom;
+      ctx.globalAlpha = 0.3;
+      
+      for (let x = 0; x <= image.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, image.height);
+        ctx.stroke();
+      }
+      
+      for (let y = 0; y <= image.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(image.width, y);
+        ctx.stroke();
+      }
+      
+      ctx.globalAlpha = 1;
+    }
+
     // Draw current polygon being drawn
     if (currentPolygon.length > 0) {
       ctx.beginPath();
@@ -154,17 +175,43 @@ export const FloorPlanCanvas = ({
       currentPolygon.slice(1).forEach(point => {
         ctx.lineTo(point.x, point.y);
       });
+      
+      // Draw rubber band line to mouse
+      if (activeTool === "polygon" && currentPolygon.length > 0) {
+        const snappedMouse = snapPoint(mousePos);
+        ctx.lineTo(snappedMouse.x, snappedMouse.y);
+      }
+      
       ctx.strokeStyle = "#007acc";
       ctx.lineWidth = 2 / zoom;
       ctx.stroke();
       
-      // Draw points
-      currentPolygon.forEach(point => {
+      // Draw vertices
+      currentPolygon.forEach((point, index) => {
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 4 / zoom, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, 6 / zoom, 0, Math.PI * 2);
         ctx.fillStyle = "#007acc";
         ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2 / zoom;
+        ctx.stroke();
       });
+    }
+
+    // Draw editing handles for selected polygon
+    if (isEditingPolygon) {
+      const editPolygon = roomPolygons.find(p => p.id === isEditingPolygon);
+      if (editPolygon) {
+        editPolygon.points.forEach((point, index) => {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 8 / zoom, 0, Math.PI * 2);
+          ctx.fillStyle = "#ff6b35";
+          ctx.fill();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2 / zoom;
+          ctx.stroke();
+        });
+      }
     }
 
     // Draw panorama markers
@@ -210,6 +257,23 @@ export const FloorPlanCanvas = ({
     return () => window.removeEventListener("resize", handleResize);
   }, [render]);
 
+  // Fit image to screen
+  const fitToScreen = useCallback((img?: HTMLImageElement, canvas?: HTMLCanvasElement) => {
+    const imageToUse = img || image;
+    const canvasToUse = canvas || canvasRef.current;
+    if (!imageToUse || !canvasToUse) return;
+
+    const scaleX = canvasToUse.width / imageToUse.width;
+    const scaleY = canvasToUse.height / imageToUse.height;
+    const newZoom = Math.min(scaleX, scaleY) * 0.9;
+    
+    setZoom(newZoom);
+    setPan({
+      x: (canvasToUse.width - imageToUse.width * newZoom) / 2,
+      y: (canvasToUse.height - imageToUse.height * newZoom) / 2
+    });
+  }, [image]);
+
   // Convert screen coordinates to canvas coordinates
   const screenToCanvas = useCallback((screenX: number, screenY: number) => {
     const canvas = canvasRef.current;
@@ -222,27 +286,78 @@ export const FloorPlanCanvas = ({
     return { x, y };
   }, [pan, zoom]);
 
+  // Snap point to grid if enabled
+  const snapPoint = useCallback((point: { x: number; y: number }) => {
+    if (!snapToGrid) return point;
+    
+    return {
+      x: Math.round(point.x / gridSize) * gridSize,
+      y: Math.round(point.y / gridSize) * gridSize
+    };
+  }, [snapToGrid, gridSize]);
+
+  // Get zoom limits
+  const getZoomLimits = useCallback(() => {
+    if (!image) return { min: 0.1, max: 8 };
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return { min: 0.1, max: 8 };
+    
+    const scaleX = canvas.width / image.width;
+    const scaleY = canvas.height / image.height;
+    const fitZoom = Math.min(scaleX, scaleY);
+    
+    return { 
+      min: fitZoom * 0.1, // Allow zooming out beyond fit
+      max: 8 // 800% zoom
+    };
+  }, [image]);
+
   // Handle mouse events
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
-    const { x, y } = screenToCanvas(event.clientX, event.clientY);
+    const rawPos = screenToCanvas(event.clientX, event.clientY);
+    const { x, y } = snapPoint(rawPos);
 
     if (activeTool === "select") {
+      // Check for vertex dragging first
+      if (isEditingPolygon) {
+        const editPolygon = roomPolygons.find(p => p.id === isEditingPolygon);
+        if (editPolygon) {
+          for (let i = 0; i < editPolygon.points.length; i++) {
+            const vertex = editPolygon.points[i];
+            const distance = Math.sqrt((rawPos.x - vertex.x) ** 2 + (rawPos.y - vertex.y) ** 2);
+            if (distance <= 8) {
+              setDragVertex({ polygonId: isEditingPolygon, vertexIndex: i });
+              return;
+            }
+          }
+        }
+      }
+      
       // Check if clicking on a room polygon
       for (const polygon of roomPolygons) {
-        if (isPointInPolygon({ x, y }, polygon.points)) {
-          onRoomClick(polygon.roomId);
+        if (isPointInPolygon(rawPos, polygon.points)) {
+          if (isEditingPolygon === polygon.id) {
+            setIsEditingPolygon(null); // Exit edit mode
+          } else {
+            setIsEditingPolygon(polygon.id); // Enter edit mode
+            onRoomClick(polygon.roomId);
+          }
           return;
         }
       }
       
       // Check if clicking on a panorama marker
       for (const marker of panoMarkers) {
-        const distance = Math.sqrt((x - marker.x) ** 2 + (y - marker.y) ** 2);
-        if (distance <= 8) {
+        const distance = Math.sqrt((rawPos.x - marker.x) ** 2 + (rawPos.y - marker.y) ** 2);
+        if (distance <= 12) {
           onPanoClick(marker.panoId);
           return;
         }
       }
+      
+      // Exit edit mode if clicking empty space
+      setIsEditingPolygon(null);
       
       // Start panning
       setIsPanning(true);
@@ -255,36 +370,65 @@ export const FloorPlanCanvas = ({
     } else if (activeTool === "pano") {
       onAddPanoMarker(x, y);
     }
-  }, [activeTool, screenToCanvas, pan, roomPolygons, panoMarkers, onRoomClick, onPanoClick, onAddPanoMarker]);
+  }, [activeTool, screenToCanvas, snapPoint, pan, roomPolygons, panoMarkers, isEditingPolygon, onRoomClick, onPanoClick, onAddPanoMarker]);
 
   const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    // Update mouse position for rubber band drawing
+    const mouseCanvasPos = screenToCanvas(event.clientX, event.clientY);
+    setMousePos(mouseCanvasPos);
+    
     if (isPanning) {
-      setPan({
+      const newPan = {
         x: event.clientX - panStart.x,
         y: event.clientY - panStart.y
-      });
+      };
+      
+      // Clamp panning to keep image visible
+      if (image) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const imageW = image.width * zoom;
+          const imageH = image.height * zoom;
+          
+          newPan.x = Math.min(canvas.width * 0.8, Math.max(canvas.width * 0.2 - imageW, newPan.x));
+          newPan.y = Math.min(canvas.height * 0.8, Math.max(canvas.height * 0.2 - imageH, newPan.y));
+        }
+      }
+      
+      setPan(newPan);
+    } else if (dragVertex) {
+      // Handle vertex dragging
+      const snapped = snapPoint(mouseCanvasPos);
+      onUpdatePolygon(dragVertex.polygonId, 
+        roomPolygons.find(p => p.id === dragVertex.polygonId)?.points.map((point, index) => 
+          index === dragVertex.vertexIndex ? snapped : point
+        ) || []
+      );
     }
-  }, [isPanning, panStart]);
+  }, [isPanning, panStart, screenToCanvas, snapPoint, zoom, image, dragVertex]);
 
   const handleMouseUp = useCallback((event: React.MouseEvent) => {
     if (isPanning) {
       setIsPanning(false);
     } else if (isDrawingRect && rectStart) {
-      const { x, y } = screenToCanvas(event.clientX, event.clientY);
+      const rawPos = screenToCanvas(event.clientX, event.clientY);
+      const { x, y } = snapPoint(rawPos);
       
       // Create rectangle polygon
       const rectPoints = [
-        { x: rectStart.x, y: rectStart.y },
-        { x: x, y: rectStart.y },
-        { x: x, y: y },
-        { x: rectStart.x, y: y }
+        snapPoint(rectStart),
+        { x, y: rectStart.y },
+        { x, y },
+        { x: rectStart.x, y }
       ];
       
       onAddPolygon(rectPoints);
       setIsDrawingRect(false);
       setRectStart(null);
+    } else if (dragVertex) {
+      setDragVertex(null);
     }
-  }, [isPanning, isDrawingRect, rectStart, screenToCanvas, onAddPolygon]);
+  }, [isPanning, isDrawingRect, rectStart, screenToCanvas, snapPoint, onAddPolygon, dragVertex]);
 
   const handleDoubleClick = useCallback(() => {
     if (activeTool === "polygon" && currentPolygon.length >= 3) {
@@ -293,27 +437,82 @@ export const FloorPlanCanvas = ({
     }
   }, [activeTool, currentPolygon, onAddPolygon]);
 
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (activeTool === "polygon") {
+      if (event.key === "Escape") {
+        setCurrentPolygon([]);
+      } else if (event.key === "Backspace" && currentPolygon.length > 0) {
+        setCurrentPolygon(prev => prev.slice(0, -1));
+      }
+    }
+  }, [activeTool, currentPolygon]);
+
+  // Keyboard event listener
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Handle wheel zoom (zoom to cursor)
+  const handleWheel = useCallback((event: WheelEvent) => {
+    event.preventDefault();
+    
+    const canvas = canvasRef.current;
+    if (!canvas || !image) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    
+    const { min, max } = getZoomLimits();
+    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(min, Math.min(max, zoom * zoomFactor));
+    
+    if (newZoom !== zoom) {
+      // Zoom towards cursor
+      const zoomChange = newZoom / zoom;
+      const newPan = {
+        x: mouseX - (mouseX - pan.x) * zoomChange,
+        y: mouseY - (mouseY - pan.y) * zoomChange
+      };
+      
+      setZoom(newZoom);
+      setPan(newPan);
+    }
+  }, [zoom, pan, image, getZoomLimits]);
+
   const handleZoom = useCallback((delta: number) => {
-    const newZoom = Math.max(0.1, Math.min(5, zoom + delta));
+    const { min, max } = getZoomLimits();
+    const newZoom = Math.max(min, Math.min(max, zoom + delta));
     setZoom(newZoom);
-  }, [zoom]);
+  }, [zoom, getZoomLimits]);
 
   const handleReset = useCallback(() => {
     if (!image) return;
-    
+    fitToScreen();
+  }, [fitToScreen]);
+
+  const handleZoom100 = useCallback(() => {
+    if (!image) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    const scaleX = canvas.width / image.width;
-    const scaleY = canvas.height / image.height;
-    const initialZoom = Math.min(scaleX, scaleY) * 0.9;
-    
-    setZoom(initialZoom);
+    setZoom(1);
     setPan({
-      x: (canvas.width - image.width * initialZoom) / 2,
-      y: (canvas.height - image.height * initialZoom) / 2
+      x: (canvas.width - image.width) / 2,
+      y: (canvas.height - image.height) / 2
     });
   }, [image]);
+
+  // Mouse wheel listener
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
 
   const isPointInPolygon = (point: { x: number; y: number }, polygon: { x: number; y: number }[]) => {
     let inside = false;
@@ -338,27 +537,32 @@ export const FloorPlanCanvas = ({
         </div>
       )}
       
+      {/* Toolbar - Moved to FloorPlanInterface */}
+
       {/* Canvas Controls */}
       <div className="absolute top-4 right-4 space-y-2 z-10">
-        <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 border space-y-1">
+        <div className="bg-background/95 backdrop-blur-sm rounded-lg p-2 border shadow-lg space-y-1">
           <Button size="sm" variant="outline" onClick={() => handleZoom(0.2)} disabled={!image}>
             <ZoomIn className="h-4 w-4" />
           </Button>
           <Button size="sm" variant="outline" onClick={() => handleZoom(-0.2)} disabled={!image}>
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" onClick={handleReset} disabled={!image}>
+          <Button size="sm" variant="outline" onClick={handleReset} disabled={!image} title="Fit to Screen">
             <RotateCcw className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleZoom100} disabled={!image} title="100%">
+            1:1
           </Button>
         </div>
         
-        <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
+        <div className="bg-background/95 backdrop-blur-sm rounded-lg px-3 py-2 border shadow-lg">
           <p className="text-xs font-mono text-muted-foreground">Zoom</p>
           <p className="text-sm font-medium">{(zoom * 100).toFixed(0)}%</p>
         </div>
         
         {image && (
-          <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
+          <div className="bg-background/95 backdrop-blur-sm rounded-lg px-3 py-2 border shadow-lg">
             <p className="text-xs font-mono text-muted-foreground">Image</p>
             <p className="text-sm font-medium">{image.width} × {image.height}</p>
           </div>
@@ -367,16 +571,16 @@ export const FloorPlanCanvas = ({
 
       {/* Instructions */}
       {activeTool === "polygon" && (
-        <div className="absolute top-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border">
+        <div className="absolute bottom-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border shadow-lg">
           <p className="text-xs font-medium text-primary">Polygon Mode</p>
           <p className="text-xs text-muted-foreground">
-            Click to add points, double-click to finish
+            Click to add points, double-click to finish, ESC to cancel, Backspace to undo
           </p>
         </div>
       )}
       
       {activeTool === "rectangle" && (
-        <div className="absolute top-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border">
+        <div className="absolute bottom-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border shadow-lg">
           <p className="text-xs font-medium text-primary">Rectangle Mode</p>
           <p className="text-xs text-muted-foreground">
             Click and drag to create rectangle
@@ -385,11 +589,27 @@ export const FloorPlanCanvas = ({
       )}
       
       {activeTool === "pano" && (
-        <div className="absolute top-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border">
+        <div className="absolute bottom-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border shadow-lg">
           <p className="text-xs font-medium text-primary">Panorama Mode</p>
           <p className="text-xs text-muted-foreground">
             Click to place panorama marker
           </p>
+        </div>
+      )}
+      
+      {activeTool === "select" && isEditingPolygon && (
+        <div className="absolute bottom-4 left-4 bg-accent/10 border-accent rounded-lg px-3 py-2 border shadow-lg">
+          <p className="text-xs font-medium text-accent">Edit Mode</p>
+          <p className="text-xs text-muted-foreground">
+            Drag vertices to reshape, click outside to finish
+          </p>
+        </div>
+      )}
+
+      {/* Grid controls */}
+      {snapToGrid && (
+        <div className="absolute bottom-4 right-4 bg-background/95 backdrop-blur-sm rounded-lg px-3 py-2 border shadow-lg">
+          <p className="text-xs font-medium">Grid: {gridSize}px</p>
         </div>
       )}
 
@@ -402,7 +622,9 @@ export const FloorPlanCanvas = ({
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
         style={{
-          cursor: activeTool === "select" ? (isPanning ? "grabbing" : "grab") : "crosshair"
+          cursor: activeTool === "select" ? 
+            (isPanning ? "grabbing" : dragVertex ? "grabbing" : isEditingPolygon ? "pointer" : "grab") : 
+            "crosshair"
         }}
       />
     </div>
