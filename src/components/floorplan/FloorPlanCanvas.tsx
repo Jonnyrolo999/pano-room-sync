@@ -39,6 +39,11 @@ interface FloorPlanCanvasProps {
   onUpdatePolygon: (polygonId: string, points: { x: number; y: number }[]) => void;
   snapToGrid: boolean;
   gridSize: number;
+  interactionFilter: "rooms" | "panos" | "both";
+  selectedRoomId: string;
+  selectedPanoId: string;
+  hoveredItemId: string;
+  onHoverItem: (itemId: string) => void;
 }
 
 export const FloorPlanCanvas = ({
@@ -52,7 +57,12 @@ export const FloorPlanCanvas = ({
   onPanoClick,
   onUpdatePolygon,
   snapToGrid,
-  gridSize
+  gridSize,
+  interactionFilter,
+  selectedRoomId,
+  selectedPanoId,
+  hoveredItemId,
+  onHoverItem
 }: FloorPlanCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +137,9 @@ export const FloorPlanCanvas = ({
     // Draw room polygons
     roomPolygons.forEach(polygon => {
       if (polygon.points.length > 2) {
+        const isSelected = selectedRoomId === polygon.roomId;
+        const isHovered = hoveredItemId === polygon.id;
+        
         ctx.beginPath();
         ctx.moveTo(polygon.points[0].x, polygon.points[0].y);
         polygon.points.slice(1).forEach(point => {
@@ -134,14 +147,51 @@ export const FloorPlanCanvas = ({
         });
         ctx.closePath();
         
-        // Fill with semi-transparent color
-        ctx.fillStyle = polygon.color + "40";
-        ctx.fill();
-        
-        // Stroke with solid color
-        ctx.strokeStyle = polygon.color;
-        ctx.lineWidth = 2 / zoom;
-        ctx.stroke();
+        // Enhanced visual differentiation
+        if (isSelected) {
+          // Selected: solid fill, thicker stroke, glow effect
+          ctx.fillStyle = "hsl(var(--primary) / 0.15)";
+          ctx.fill();
+          
+          // Glow effect
+          ctx.shadowColor = "hsl(var(--primary) / 0.4)";
+          ctx.shadowBlur = 8 / zoom;
+          ctx.strokeStyle = "hsl(var(--primary))";
+          ctx.lineWidth = 3 / zoom;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          
+          // Selection label chip at centroid
+          const centerX = polygon.points.reduce((sum, p) => sum + p.x, 0) / polygon.points.length;
+          const centerY = polygon.points.reduce((sum, p) => sum + p.y, 0) / polygon.points.length;
+          
+          ctx.fillStyle = "hsl(var(--primary))";
+          ctx.font = `${10 / zoom}px system-ui`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillRect(centerX - 30 / zoom, centerY - 8 / zoom, 60 / zoom, 16 / zoom);
+          ctx.fillStyle = "hsl(var(--primary-foreground))";
+          ctx.fillText(`Room: ${polygon.roomId}`, centerX, centerY);
+        } else if (isHovered) {
+          // Hovered: lighter fill, glow
+          ctx.fillStyle = "hsl(var(--primary) / 0.08)";
+          ctx.fill();
+          
+          ctx.shadowColor = "hsl(var(--primary) / 0.2)";
+          ctx.shadowBlur = 6 / zoom;
+          ctx.strokeStyle = "hsl(var(--primary) / 0.8)";
+          ctx.lineWidth = 2.5 / zoom;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        } else {
+          // Default: semi-transparent fill
+          ctx.fillStyle = "hsl(var(--primary) / 0.06)";
+          ctx.fill();
+          
+          ctx.strokeStyle = "hsl(var(--primary) / 0.6)";
+          ctx.lineWidth = 2 / zoom;
+          ctx.stroke();
+        }
       }
     });
 
@@ -216,25 +266,68 @@ export const FloorPlanCanvas = ({
 
     // Draw panorama markers
     panoMarkers.forEach(marker => {
-      ctx.beginPath();
-      ctx.arc(marker.x, marker.y, 8 / zoom, 0, Math.PI * 2);
-      ctx.fillStyle = "#ff6b35";
-      ctx.fill();
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2 / zoom;
-      ctx.stroke();
+      const isSelected = selectedPanoId === marker.panoId;
+      const isHovered = hoveredItemId === marker.id;
       
-      // Draw marker icon
-      ctx.fillStyle = "#ffffff";
-      ctx.font = `${12 / zoom}px Arial`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("📷", marker.x, marker.y);
+      // Enhanced marker styling
+      if (isSelected) {
+        // Selected: larger size, ring, chip
+        ctx.beginPath();
+        ctx.arc(marker.x, marker.y, 12 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = "hsl(var(--secondary))";
+        ctx.fill();
+        
+        // Selection ring
+        ctx.beginPath();
+        ctx.arc(marker.x, marker.y, 16 / zoom, 0, Math.PI * 2);
+        ctx.strokeStyle = "hsl(var(--secondary-foreground))";
+        ctx.lineWidth = 3 / zoom;
+        ctx.stroke();
+        
+        // Selection chip above marker
+        ctx.fillStyle = "hsl(var(--secondary))";
+        ctx.font = `${9 / zoom}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        const chipY = marker.y - 25 / zoom;
+        ctx.fillRect(marker.x - 35 / zoom, chipY - 12 / zoom, 70 / zoom, 14 / zoom);
+        ctx.fillStyle = "hsl(var(--secondary-foreground))";
+        ctx.fillText(`Pano: ${marker.panoId}`, marker.x, chipY);
+      } else if (isHovered) {
+        // Hovered: slightly larger, glow
+        ctx.shadowColor = "hsl(var(--secondary) / 0.4)";
+        ctx.shadowBlur = 6 / zoom;
+        ctx.beginPath();
+        ctx.arc(marker.x, marker.y, 10 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = "hsl(var(--secondary))";
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        ctx.strokeStyle = "hsl(var(--secondary-foreground))";
+        ctx.lineWidth = 2 / zoom;
+        ctx.stroke();
+      } else {
+        // Default: standard marker
+        ctx.beginPath();
+        ctx.arc(marker.x, marker.y, 8 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = "hsl(var(--secondary))";
+        ctx.fill();
+        
+        ctx.strokeStyle = "hsl(var(--secondary-foreground))";
+        ctx.lineWidth = 2 / zoom;
+        ctx.stroke();
+      }
+      
+      // Inner dot
+      ctx.beginPath();
+      ctx.arc(marker.x, marker.y, 3 / zoom, 0, Math.PI * 2);
+      ctx.fillStyle = "hsl(var(--secondary-foreground))";
+      ctx.fill();
     });
 
     // Restore context
     ctx.restore();
-  }, [ctx, image, pan, zoom, roomPolygons, panoMarkers, currentPolygon]);
+  }, [ctx, image, pan, zoom, roomPolygons, panoMarkers, currentPolygon, selectedRoomId, selectedPanoId, hoveredItemId, snapToGrid, gridSize]);
 
   // Render when dependencies change
   useEffect(() => {
@@ -364,25 +457,33 @@ export const FloorPlanCanvas = ({
         }
       }
       
+      // Apply interaction filtering
+      const canClickPanos = interactionFilter === "panos" || interactionFilter === "both";
+      const canClickRooms = interactionFilter === "rooms" || interactionFilter === "both";
+      
       // Check if clicking on a panorama marker (higher priority than polygons)
-      for (const marker of panoMarkers) {
-        const distance = Math.sqrt((rawPos.x - marker.x) ** 2 + (rawPos.y - marker.y) ** 2);
-        if (distance <= 12) {
-          onPanoClick(marker.panoId);
-          return;
+      if (canClickPanos) {
+        for (const marker of panoMarkers) {
+          const distance = Math.sqrt((rawPos.x - marker.x) ** 2 + (rawPos.y - marker.y) ** 2);
+          if (distance <= (selectedPanoId === marker.panoId ? 16 : 12)) {
+            onPanoClick(marker.panoId);
+            return;
+          }
         }
       }
       
       // Check if clicking on a room polygon
-      for (const polygon of roomPolygons) {
-        if (isPointInPolygon(rawPos, polygon.points)) {
-          if (isEditingPolygon === polygon.id) {
-            setIsEditingPolygon(null); // Exit edit mode
-          } else {
-            setIsEditingPolygon(polygon.id); // Enter edit mode
-            onRoomClick(polygon.roomId);
+      if (canClickRooms) {
+        for (const polygon of roomPolygons) {
+          if (isPointInPolygon(rawPos, polygon.points)) {
+            if (isEditingPolygon === polygon.id) {
+              setIsEditingPolygon(null); // Exit edit mode
+            } else {
+              setIsEditingPolygon(polygon.id); // Enter edit mode
+              onRoomClick(polygon.roomId);
+            }
+            return;
           }
-          return;
         }
       }
       
@@ -395,12 +496,48 @@ export const FloorPlanCanvas = ({
     } else if (activeTool === "draw") {
       setCurrentPolygon(prev => [...prev, { x, y }]);
     }
-  }, [activeTool, screenToCanvas, snapPoint, pan, roomPolygons, panoMarkers, isEditingPolygon, onRoomClick, onPanoClick, onAddPanoMarker]);
+  }, [activeTool, screenToCanvas, snapPoint, pan, roomPolygons, panoMarkers, isEditingPolygon, onRoomClick, onPanoClick, onAddPanoMarker, interactionFilter, selectedPanoId]);
+  
+  // Point in polygon test
+  const isPointInPolygon = (point: { x: number; y: number }, polygon: { x: number; y: number }[]) => {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      if (((polygon[i].y > point.y) !== (polygon[j].y > point.y)) &&
+          (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  };
 
   const handleMouseMove = useCallback((event: React.MouseEvent) => {
     // Update mouse position for rubber band drawing
     const mouseCanvasPos = screenToCanvas(event.clientX, event.clientY);
     setMousePos(mouseCanvasPos);
+    
+    // Handle hover detection
+    let hoveredId = "";
+    
+    // Check pano markers first (higher z-index)
+    for (const marker of panoMarkers) {
+      const distance = Math.sqrt((mouseCanvasPos.x - marker.x) ** 2 + (mouseCanvasPos.y - marker.y) ** 2);
+      if (distance <= 12) {
+        hoveredId = marker.id;
+        break;
+      }
+    }
+    
+    // Check room polygons if no marker hovered
+    if (!hoveredId) {
+      for (const polygon of roomPolygons) {
+        if (isPointInPolygon(mouseCanvasPos, polygon.points)) {
+          hoveredId = polygon.id;
+          break;
+        }
+      }
+    }
+    
+    onHoverItem(hoveredId);
     
     if (isPanning) {
       const newPan = {
@@ -551,16 +688,6 @@ export const FloorPlanCanvas = ({
     return () => canvas.removeEventListener('wheel', handleWheel);
   }, [handleWheel]);
 
-  const isPointInPolygon = (point: { x: number; y: number }, polygon: { x: number; y: number }[]) => {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      if (((polygon[i].y > point.y) !== (polygon[j].y > point.y)) &&
-          (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
-        inside = !inside;
-      }
-    }
-    return inside;
-  };
 
   return (
     <div className="relative w-full h-full" ref={containerRef}>

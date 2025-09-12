@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Upload, Square, MapPin, Save, Trash2, ZoomIn, ZoomOut, RotateCcw, MousePointer2, Grid3X3 } from "lucide-react";
+import { Upload, Square, MapPin, Save, Trash2, ZoomIn, ZoomOut, RotateCcw, MousePointer2, Grid3X3, Lock, X, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { FloorPlanCanvas } from "./FloorPlanCanvas";
+import { PanoramaViewer } from "../viewer/PanoramaViewer";
 
 interface Room {
   id: string;
@@ -73,6 +74,9 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   const [showPolygonConfirm, setShowPolygonConfirm] = useState(false);
   const [pendingPolygon, setPendingPolygon] = useState<{ x: number; y: number }[]>([]);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [interactionFilter, setInteractionFilter] = useState<"rooms" | "panos" | "both">("both");
+  const [lockedSelection, setLockedSelection] = useState(false);
+  const [hoveredItemId, setHoveredItemId] = useState<string>("");
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -87,6 +91,10 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
         if (state.floorName) setFloorName(state.floorName);
         if (state.scale) setScale(state.scale);
         if (state.unsavedChanges) setUnsavedChanges(state.unsavedChanges);
+        if (state.interactionFilter) setInteractionFilter(state.interactionFilter);
+        if (state.lockedSelection) setLockedSelection(state.lockedSelection);
+        if (state.selectedRoomId) setSelectedRoomId(state.selectedRoomId);
+        if (state.selectedPanoId) setSelectedPanoId(state.selectedPanoId);
       } catch (error) {
         console.warn('Failed to load saved state:', error);
       }
@@ -102,10 +110,14 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
       buildingName,
       floorName,
       scale,
-      unsavedChanges
+      unsavedChanges,
+      interactionFilter,
+      lockedSelection,
+      selectedRoomId,
+      selectedPanoId
     };
     localStorage.setItem('floorplan-editor-state', JSON.stringify(state));
-  }, [floorPlan, roomPolygons, panoMarkers, buildingName, floorName, scale, unsavedChanges]);
+  }, [floorPlan, roomPolygons, panoMarkers, buildingName, floorName, scale, unsavedChanges, interactionFilter, lockedSelection, selectedRoomId, selectedPanoId]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -260,16 +272,20 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   }, [selectedPanoId, panoramas, roomPolygons]);
 
   const handleRoomClick = useCallback((roomId: string) => {
+    if (lockedSelection) return;
+    setSelectedRoomId(roomId);
     onRoomSelect?.(roomId);
-    toast.info(`Opened room ${roomId}`);
-  }, [onRoomSelect]);
+    toast.info(`Selected room ${roomId}`);
+  }, [onRoomSelect, lockedSelection]);
 
   const handlePanoClick = useCallback((panoId: string) => {
+    if (lockedSelection) return;
+    setSelectedPanoId(panoId);
     setCurrentPanoId(panoId);
     setShowPanoViewer(true);
     onPanoSelect?.(panoId); // Still call the original handler for room data
-    toast.info(`Viewing panorama ${panoId}`);
-  }, [onPanoSelect]);
+    toast.info(`Selected panorama ${panoId}`);
+  }, [onPanoSelect, lockedSelection]);
 
   const handleUpdatePolygon = useCallback((polygonId: string, points: { x: number; y: number }[]) => {
     setRoomPolygons(prev => prev.map(polygon => 
@@ -458,6 +474,36 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
             </Button>
             
             <div className="h-6 w-px bg-border mx-2" />
+
+            {/* Interaction Filter */}
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              <Button
+                variant={interactionFilter === "rooms" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInteractionFilter("rooms")}
+                title="Rooms only"
+              >
+                <Square className="h-3 w-3" />
+              </Button>
+              <Button
+                variant={interactionFilter === "panos" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInteractionFilter("panos")}
+                title="Panos only"
+              >
+                <MapPin className="h-3 w-3" />
+              </Button>
+              <Button
+                variant={interactionFilter === "both" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInteractionFilter("both")}
+                title="Both"
+              >
+                Both
+              </Button>
+            </div>
+            
+            <div className="h-6 w-px bg-border mx-2" />
             
             <Button
               size="sm"
@@ -482,6 +528,53 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Selection Chips */}
+            {(selectedRoomId || selectedPanoId) && (
+              <div className="flex items-center gap-1">
+                {selectedRoomId && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Square className="h-3 w-3" />
+                    Room: {selectedRoomId}
+                    {!lockedSelection && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => setSelectedRoomId("")}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </Badge>
+                )}
+                {selectedPanoId && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    Pano: {selectedPanoId}
+                    {!lockedSelection && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => setSelectedPanoId("")}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLockedSelection(!lockedSelection)}
+                  title={lockedSelection ? "Unlock selection" : "Lock selection"}
+                  className={lockedSelection ? "bg-primary/10 text-primary" : ""}
+                >
+                  <Lock className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            
             <Badge variant={unsavedChanges ? "destructive" : "secondary"}>
               {unsavedChanges ? "Unsaved" : "Saved"}
             </Badge>
@@ -506,7 +599,33 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
             onUpdatePolygon={handleUpdatePolygon}
             snapToGrid={snapToGrid}
             gridSize={gridSize}
+            interactionFilter={interactionFilter}
+            selectedRoomId={selectedRoomId}
+            selectedPanoId={selectedPanoId}
+            hoveredItemId={hoveredItemId}
+            onHoverItem={setHoveredItemId}
           />
+          
+          {/* Legend */}
+          <div className="absolute bottom-4 left-4 bg-background/95 backdrop-blur-sm border rounded-lg p-3 shadow-lg">
+            <div className="text-sm font-medium mb-2">Legend</div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-4 h-4 border-2 border-primary bg-primary/15 rounded-sm"></div>
+                <span>Rooms</span>
+                <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
+                  <Eye className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="w-4 h-4 bg-secondary border-2 border-secondary-foreground rounded-full"></div>
+                <span>Panoramas</span>
+                <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
+                  <Eye className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
