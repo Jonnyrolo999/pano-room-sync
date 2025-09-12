@@ -113,18 +113,15 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
 
   const convertPdfToImage = async (arrayBuffer: ArrayBuffer): Promise<string> => {
     try {
-      // Dynamic import to handle PDF.js with proper worker setup
+      // Dynamic import to handle PDF.js
       const pdfjsLib = await import('pdfjs-dist');
       
-      // Use bundled worker (works better in Vite)
-      const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.js?url');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
+      // Use CDN worker URL - more reliable for Vite builds
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
       
       const pdf = await pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        // Disable worker streaming for better compatibility
-        useSystemFonts: true,
-        standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`
+        useSystemFonts: true
       }).promise;
       
       const page = await pdf.getPage(1); // Get first page
@@ -144,11 +141,11 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
       context.fillStyle = '#ffffff';
       context.fillRect(0, 0, canvas.width, canvas.height);
       
-        await page.render({
-          canvasContext: context,
-          viewport: viewport,
-          canvas: canvas
-        }).promise;
+      await page.render({
+        canvasContext: context,
+        viewport: viewport,
+        canvas: canvas
+      }).promise;
       
       console.log(`PDF rendered successfully: ${canvas.width}x${canvas.height} at ${scale}x scale`);
       return canvas.toDataURL('image/png', 0.95);
