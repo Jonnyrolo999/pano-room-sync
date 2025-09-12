@@ -29,7 +29,7 @@ interface PanoMarker {
 
 interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
-  activeTool: "select" | "polygon" | "rectangle" | "pano";
+  activeTool: "select" | "draw";
   roomPolygons: RoomPolygon[];
   panoMarkers: PanoMarker[];
   onAddPolygon: (points: { x: number; y: number }[]) => void;
@@ -63,11 +63,10 @@ export const FloorPlanCanvas = ({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [currentPolygon, setCurrentPolygon] = useState<{ x: number; y: number }[]>([]);
-  const [isDrawingRect, setIsDrawingRect] = useState(false);
-  const [rectStart, setRectStart] = useState<{ x: number; y: number } | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isEditingPolygon, setIsEditingPolygon] = useState<string | null>(null);
   const [dragVertex, setDragVertex] = useState<{ polygonId: string; vertexIndex: number } | null>(null);
+  const [imageNaturalSize, setImageNaturalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   // Initialize canvas and load image
   useEffect(() => {
@@ -84,6 +83,7 @@ export const FloorPlanCanvas = ({
     img.onload = () => {
       console.log("Image loaded successfully:", img.width, "x", img.height);
       setImage(img);
+      setImageNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
       
       // Fit image to canvas
       const container = containerRef.current;
@@ -177,7 +177,7 @@ export const FloorPlanCanvas = ({
       });
       
       // Draw rubber band line to mouse
-      if (activeTool === "polygon" && currentPolygon.length > 0) {
+      if (activeTool === "draw" && currentPolygon.length > 0) {
         const snappedMouse = snapPoint(mousePos);
         ctx.lineTo(snappedMouse.x, snappedMouse.y);
       }
@@ -274,14 +274,22 @@ export const FloorPlanCanvas = ({
     });
   }, [image]);
 
-  // Convert screen coordinates to canvas coordinates
+  // Convert screen coordinates to canvas coordinates with high precision
   const screenToCanvas = useCallback((screenX: number, screenY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
     const rect = canvas.getBoundingClientRect();
-    const x = (screenX - rect.left - pan.x) / zoom;
-    const y = (screenY - rect.top - pan.y) / zoom;
+    // Account for device pixel ratio and precise positioning
+    const dpr = window.devicePixelRatio || 1;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const canvasX = (screenX - rect.left) * scaleX;
+    const canvasY = (screenY - rect.top) * scaleY;
+    
+    const x = (canvasX - pan.x) / zoom;
+    const y = (canvasY - pan.y) / zoom;
     
     return { x, y };
   }, [pan, zoom]);
@@ -377,13 +385,8 @@ export const FloorPlanCanvas = ({
       // Start panning
       setIsPanning(true);
       setPanStart({ x: event.clientX - pan.x, y: event.clientY - pan.y });
-    } else if (activeTool === "polygon") {
+    } else if (activeTool === "draw") {
       setCurrentPolygon(prev => [...prev, { x, y }]);
-    } else if (activeTool === "rectangle") {
-      setIsDrawingRect(true);
-      setRectStart({ x, y });
-    } else if (activeTool === "pano") {
-      onAddPanoMarker(x, y);
     }
   }, [activeTool, screenToCanvas, snapPoint, pan, roomPolygons, panoMarkers, isEditingPolygon, onRoomClick, onPanoClick, onAddPanoMarker]);
 
@@ -434,28 +437,13 @@ export const FloorPlanCanvas = ({
   const handleMouseUp = useCallback((event: React.MouseEvent) => {
     if (isPanning) {
       setIsPanning(false);
-    } else if (isDrawingRect && rectStart) {
-      const rawPos = screenToCanvas(event.clientX, event.clientY);
-      const { x, y } = snapPoint(rawPos);
-      
-      // Create rectangle polygon
-      const rectPoints = [
-        snapPoint(rectStart),
-        { x, y: rectStart.y },
-        { x, y },
-        { x: rectStart.x, y }
-      ];
-      
-      onAddPolygon(rectPoints);
-      setIsDrawingRect(false);
-      setRectStart(null);
     } else if (dragVertex) {
       setDragVertex(null);
     }
-  }, [isPanning, isDrawingRect, rectStart, screenToCanvas, snapPoint, onAddPolygon, dragVertex]);
+  }, [isPanning, dragVertex]);
 
   const handleDoubleClick = useCallback(() => {
-    if (activeTool === "polygon" && currentPolygon.length >= 3) {
+    if (activeTool === "draw" && currentPolygon.length >= 3) {
       onAddPolygon([...currentPolygon]);
       setCurrentPolygon([]);
     }
@@ -463,11 +451,12 @@ export const FloorPlanCanvas = ({
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (activeTool === "polygon") {
+    if (activeTool === "draw") {
       if (event.key === "Escape") {
         setCurrentPolygon([]);
       } else if (event.key === "Backspace" && currentPolygon.length > 0) {
         setCurrentPolygon(prev => prev.slice(0, -1));
+        event.preventDefault();
       }
     }
   }, [activeTool, currentPolygon]);
@@ -611,29 +600,11 @@ export const FloorPlanCanvas = ({
       </div>
 
       {/* Instructions */}
-      {activeTool === "polygon" && (
+      {activeTool === "draw" && (
         <div className="absolute bottom-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border shadow-lg">
-          <p className="text-xs font-medium text-primary">Polygon Mode</p>
+          <p className="text-xs font-medium text-primary">Draw Room Mode</p>
           <p className="text-xs text-muted-foreground">
-            Click to add points, double-click to finish, ESC to cancel, Backspace to undo
-          </p>
-        </div>
-      )}
-      
-      {activeTool === "rectangle" && (
-        <div className="absolute bottom-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border shadow-lg">
-          <p className="text-xs font-medium text-primary">Rectangle Mode</p>
-          <p className="text-xs text-muted-foreground">
-            Click and drag to create rectangle
-          </p>
-        </div>
-      )}
-      
-      {activeTool === "pano" && (
-        <div className="absolute bottom-4 left-4 bg-primary/10 border-primary rounded-lg px-3 py-2 border shadow-lg">
-          <p className="text-xs font-medium text-primary">Panorama Mode</p>
-          <p className="text-xs text-muted-foreground">
-            Click to place panorama marker
+            Click to add vertices, double-click to close polygon, ESC to cancel, Backspace to undo
           </p>
         </div>
       )}

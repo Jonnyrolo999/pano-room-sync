@@ -60,7 +60,7 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   const [buildingName, setBuildingName] = useState("");
   const [floorName, setFloorName] = useState("");
   const [scale, setScale] = useState<number | undefined>();
-  const [activeTool, setActiveTool] = useState<"select" | "polygon" | "rectangle" | "pano">("select");
+  const [activeTool, setActiveTool] = useState<"select" | "draw">("select");
   const [roomPolygons, setRoomPolygons] = useState<RoomPolygon[]>([]);
   const [panoMarkers, setPanoMarkers] = useState<PanoMarker[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
@@ -68,6 +68,11 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   const [isUploading, setIsUploading] = useState(false);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [gridSize, setGridSize] = useState(25);
+  const [showPanoViewer, setShowPanoViewer] = useState(false);
+  const [currentPanoId, setCurrentPanoId] = useState<string>("");
+  const [showPolygonConfirm, setShowPolygonConfirm] = useState(false);
+  const [pendingPolygon, setPendingPolygon] = useState<{ x: number; y: number }[]>([]);
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,14 +117,11 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   }, [buildingName, floorName, scale]);
 
   const convertPdfToImage = async (arrayBuffer: ArrayBuffer): Promise<string> => {
-    // Use a dedicated worker bundled by Vite to avoid CDN/cross-origin issues
-    let worker: Worker | null = null;
     try {
       const pdfjsLib = await import('pdfjs-dist');
-
-      const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
-      worker = new Worker(workerUrl, { type: 'module' });
-      (pdfjsLib as any).GlobalWorkerOptions.workerPort = worker;
+      
+      // Use CDN worker to avoid bundling issues
+      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
 
       const pdf = await pdfjsLib.getDocument({
         data: arrayBuffer,
@@ -154,29 +156,43 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
     } catch (error) {
       console.error('PDF conversion error:', error);
       throw new Error('Failed to convert PDF to image. Please try uploading as JPG/PNG instead.');
-    } finally {
-      try { worker?.terminate(); } catch {}
     }
   };
 
   const handleAddPolygon = useCallback((points: { x: number; y: number }[]) => {
-    if (!selectedRoomId) {
+    // Store pending polygon and show confirmation
+    setPendingPolygon(points);
+    setShowPolygonConfirm(true);
+    setUnsavedChanges(true);
+  }, []);
+
+  const confirmPolygon = useCallback(() => {
+    if (!selectedRoomId || pendingPolygon.length < 3) {
       toast.error("Please select a room to assign this polygon");
       return;
     }
 
     const roomData = rooms.find(r => r.id === selectedRoomId);
+    
     const newPolygon: RoomPolygon = {
       id: `polygon_${Date.now()}`,
       roomId: selectedRoomId,
-      points,
+      points: pendingPolygon, // Keep in canvas coordinates for now
       color: getStatusColor(roomData),
       roomData
     };
 
     setRoomPolygons(prev => [...prev, newPolygon]);
-    toast.success(`Room polygon created for ${roomData?.id || selectedRoomId}`);
-  }, [selectedRoomId, rooms]);
+    setShowPolygonConfirm(false);
+    setPendingPolygon([]);
+    setSelectedRoomId("");
+    toast.success(`Room polygon assigned to ${roomData?.id || selectedRoomId}`);
+  }, [selectedRoomId, pendingPolygon, rooms]);
+
+  const cancelPolygon = useCallback(() => {
+    setShowPolygonConfirm(false);
+    setPendingPolygon([]);
+  }, []);
 
   const handleAddPanoMarker = useCallback((x: number, y: number) => {
     if (!selectedPanoId) {
@@ -214,8 +230,10 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   }, [onRoomSelect]);
 
   const handlePanoClick = useCallback((panoId: string) => {
-    onPanoSelect?.(panoId);
-    toast.info(`Opened panorama ${panoId}`);
+    setCurrentPanoId(panoId);
+    setShowPanoViewer(true);
+    onPanoSelect?.(panoId); // Still call the original handler for room data
+    toast.info(`Viewing panorama ${panoId}`);
   }, [onPanoSelect]);
 
   const handleUpdatePolygon = useCallback((polygonId: string, points: { x: number; y: number }[]) => {
@@ -372,168 +390,150 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
 
   return (
     <div className="h-full flex">
-      {/* Tools Panel */}
-      <div className="w-80 border-r bg-background p-4 space-y-4 overflow-y-auto">
-        {/* Main Toolbar */}
-        <div>
-          <h3 className="font-semibold mb-3">Drawing Tools</h3>
-          <div className="grid grid-cols-2 gap-2">
+      {/* Split Screen Layout */}
+      <div className="flex-1 flex flex-col">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between p-4 border-b bg-background">
+          <div className="flex items-center gap-2">
             <Button
               variant={activeTool === "select" ? "default" : "outline"}
               size="sm"
               onClick={() => setActiveTool("select")}
+              title="Select and edit polygons"
             >
               <MousePointer2 className="h-4 w-4 mr-1" />
               Select
             </Button>
             <Button
-              variant={activeTool === "polygon" ? "default" : "outline"}
+              variant={activeTool === "draw" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveTool("polygon")}
+              onClick={() => setActiveTool("draw")}
+              title="Draw room polygons"
             >
-              ⬟ Polygon
+              ⬟ Draw Room
             </Button>
+            
+            <div className="h-6 w-px bg-border mx-2" />
+            
             <Button
-              variant={activeTool === "rectangle" ? "default" : "outline"}
               size="sm"
-              onClick={() => setActiveTool("rectangle")}
+              variant={snapToGrid ? "default" : "outline"}
+              onClick={() => setSnapToGrid(!snapToGrid)}
+              title="Toggle grid snapping"
             >
-              <Square className="h-4 w-4 mr-1" />
-              Rectangle
+              <Grid3X3 className="h-4 w-4" />
             </Button>
-            <Button
-              variant={activeTool === "pano" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("pano")}
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              Panorama
-            </Button>
-          </div>
-        </div>
-
-        {/* Grid Controls */}
-        <div>
-          <h4 className="font-medium mb-2">Grid & Snapping</h4>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Snap to Grid</span>
-              <Button
-                size="sm"
-                variant={snapToGrid ? "default" : "outline"}
-                onClick={() => setSnapToGrid(!snapToGrid)}
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-            </div>
             {snapToGrid && (
-              <div>
-                <Label htmlFor="grid-size">Grid Size (px)</Label>
-                <div className="flex gap-1 mt-1">
-                  <Button
-                    size="sm"
-                    variant={gridSize === 10 ? "default" : "outline"}
-                    onClick={() => setGridSize(10)}
-                  >
-                    10
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={gridSize === 25 ? "default" : "outline"}
-                    onClick={() => setGridSize(25)}
-                  >
-                    25
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={gridSize === 50 ? "default" : "outline"}
-                    onClick={() => setGridSize(50)}
-                  >
-                    50
-                  </Button>
-                </div>
-              </div>
+              <Select value={gridSize.toString()} onValueChange={(v) => setGridSize(parseInt(v))}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10px</SelectItem>
+                  <SelectItem value="25">25px</SelectItem>
+                  <SelectItem value="50">50px</SelectItem>
+                </SelectContent>
+              </Select>
             )}
           </div>
-        </div>
-
-        <div>
-          <h3 className="font-semibold mb-2">Floor Plan Tools</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant={activeTool === "select" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("select")}
-            >
-              Select
-            </Button>
-            <Button
-              variant={activeTool === "polygon" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("polygon")}
-            >
-              ⬟ Polygon
-            </Button>
-            <Button
-              variant={activeTool === "rectangle" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("rectangle")}
-            >
-              <Square className="h-4 w-4 mr-1" />
-              Rectangle
-            </Button>
-            <Button
-              variant={activeTool === "pano" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("pano")}
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              Panorama
+          
+          <div className="flex items-center gap-2">
+            <Badge variant={unsavedChanges ? "destructive" : "secondary"}>
+              {unsavedChanges ? "Unsaved" : "Saved"}
+            </Badge>
+            <Button onClick={() => setUnsavedChanges(false)} disabled={!unsavedChanges}>
+              <Save className="h-4 w-4 mr-1" />
+              Save
             </Button>
           </div>
         </div>
 
-        {activeTool === "polygon" || activeTool === "rectangle" ? (
-          <div>
-            <Label htmlFor="room-select">Assign to Room</Label>
-            <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select room" />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map(room => (
-                  <SelectItem key={room.id} value={room.id}>
-                    {room.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
+        {/* Canvas Area */}
+        <div className="flex-1 relative">
+          <FloorPlanCanvas
+            floorPlan={floorPlan}
+            activeTool={activeTool}
+            roomPolygons={roomPolygons}
+            panoMarkers={panoMarkers}
+            onAddPolygon={handleAddPolygon}
+            onAddPanoMarker={handleAddPanoMarker}
+            onRoomClick={handleRoomClick}
+            onPanoClick={handlePanoClick}
+            onUpdatePolygon={handleUpdatePolygon}
+            snapToGrid={snapToGrid}
+            gridSize={gridSize}
+          />
+        </div>
+      </div>
 
-        {activeTool === "pano" ? (
-          <div>
-            <Label htmlFor="pano-select">Select Panorama</Label>
-            <Select value={selectedPanoId} onValueChange={setSelectedPanoId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select panorama" />
-              </SelectTrigger>
-              <SelectContent>
+      {/* Right Panel */}
+      <div className="w-96 border-l bg-background flex flex-col">
+        {showPanoViewer ? (
+          <div className="flex-1 flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-semibold">Panorama Viewer</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowPanoViewer(false)}>
+                ✕
+              </Button>
+            </div>
+            <div className="flex-1 bg-muted flex items-center justify-center">
+              <p className="text-muted-foreground">Panorama viewer for {currentPanoId}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 space-y-4 overflow-y-auto">
+            {activeTool === "draw" && (
+              <div>
+                <Label htmlFor="room-select">Room to Assign</Label>
+                <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select room for polygon" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map(room => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click to place vertices, double-click to close
+                </p>
+              </div>
+            )}
+
+            <div>
+              <h4 className="font-medium mb-2">Available Panoramas</h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {panoramas.map(pano => (
-                  <SelectItem key={pano.nodeId} value={pano.nodeId}>
-                    {pano.title || pano.nodeId}
-                  </SelectItem>
+                  <div key={pano.nodeId} className="flex items-center justify-between p-2 border rounded">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{pano.title || pano.nodeId}</span>
+                      <span className="text-xs text-muted-foreground">{pano.floor}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={selectedPanoId === pano.nodeId ? "default" : "outline"}
+                      onClick={() => setSelectedPanoId(pano.nodeId)}
+                    >
+                      {selectedPanoId === pano.nodeId ? "Selected" : "Select"}
+                    </Button>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
+              </div>
+              {selectedPanoId && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Click on floor plan to place {panoramas.find(p => p.nodeId === selectedPanoId)?.title}
+                </p>
+              )}
+            </div>
 
-        <div>
-          <Button onClick={autoAssignPanoramas} className="w-full" variant="outline">
-            Auto-Assign Panoramas
-          </Button>
-        </div>
+            <div>
+              <Button onClick={autoAssignPanoramas} className="w-full" variant="outline">
+                Auto-Assign Panoramas
+              </Button>
+            </div>
 
         <div className="space-y-2">
           <h4 className="font-medium">Room Polygons ({roomPolygons.length})</h4>
@@ -595,24 +595,49 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
             </div>
           </div>
         </div>
+          </div>
+        )}
       </div>
 
-      {/* Canvas Area */}
-      <div className="flex-1">
-        <FloorPlanCanvas
-          floorPlan={floorPlan}
-          activeTool={activeTool}
-          roomPolygons={roomPolygons}
-          panoMarkers={panoMarkers}
-          onAddPolygon={handleAddPolygon}
-          onAddPanoMarker={handleAddPanoMarker}
-          onRoomClick={handleRoomClick}
-          onPanoClick={handlePanoClick}
-          onUpdatePolygon={handleUpdatePolygon}
-          snapToGrid={snapToGrid}
-          gridSize={gridSize}
-        />
-      </div>
+      {/* Polygon Confirmation Modal */}
+      {showPolygonConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background p-6 rounded-lg border max-w-md">
+            <h3 className="font-semibold mb-4">Close Polygon</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Polygon closed with {pendingPolygon.length} vertices. 
+              {selectedRoomId ? ` Assign to room ${selectedRoomId}?` : " Please select a room to assign this polygon."}
+            </p>
+            
+            {!selectedRoomId && (
+              <div className="mb-4">
+                <Label>Select Room</Label>
+                <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map(room => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={cancelPolygon}>
+                Cancel
+              </Button>
+              <Button onClick={confirmPolygon} disabled={!selectedRoomId}>
+                Assign to Room
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
