@@ -59,9 +59,9 @@ export const ViewerPanel = ({ room, headers, currentNodeId }: ViewerPanelProps) 
       { title: "Basic Info", icon: MapPin, color: "text-primary", fields: [] },
       { title: "Fabric & Finishes", icon: Wrench, color: "text-vue-green", fields: [] },
       { title: "Fittings & Equipment", icon: Settings, color: "text-sync-blue", fields: [] },
-      { title: "Services (M&E)", icon: Ruler, color: "text-amber-500", fields: [] },
-      { title: "Protection & Alarms", icon: Shield, color: "text-red-500", fields: [] },
-      { title: "Miscellaneous", icon: Users, color: "text-purple-500", fields: [] },
+      { title: "Services (M&E)", icon: Ruler, color: "text-sync-blue", fields: [] },
+      { title: "Protection & Alarms", icon: Shield, color: "text-destructive", fields: [] },
+      { title: "Miscellaneous", icon: Users, color: "text-purple", fields: [] },
     ];
 
     headers.row2.forEach((code, index) => {

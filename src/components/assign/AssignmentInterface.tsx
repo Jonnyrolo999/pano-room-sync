@@ -28,31 +28,19 @@ interface AssignmentInterfaceProps {
   rooms: Room[];
   headers: { row1: string[]; row2: string[] };
   assignments: Assignment[];
+  panoramas: Panorama[];
   onAssignmentUpdate: (assignments: Assignment[]) => void;
+  onRequestUpload?: () => void;
 }
 
-// Mock panorama data
-const MOCK_PANORAMAS: Panorama[] = [
-  { nodeId: "G-101", title: "Ground Floor - Entrance Hall", floor: "Ground" },
-  { nodeId: "G-102", title: "Ground Floor - Reception", floor: "Ground" },
-  { nodeId: "G-103", title: "Ground Floor - Waiting Area", floor: "Ground" },
-  { nodeId: "G-104", title: "Ground Floor - Office 1", floor: "Ground" },
-  { nodeId: "G-105", title: "Ground Floor - Office 2", floor: "Ground" },
-  { nodeId: "F1-201", title: "First Floor - Conference Room", floor: "First" },
-  { nodeId: "F1-202", title: "First Floor - Meeting Room A", floor: "First" },
-  { nodeId: "F1-203", title: "First Floor - Meeting Room B", floor: "First" },
-  { nodeId: "F1-204", title: "First Floor - Kitchen", floor: "First" },
-  { nodeId: "F1-205", title: "First Floor - Storage", floor: "First" },
-  { nodeId: "F2-301", title: "Second Floor - Executive Office", floor: "Second" },
-  { nodeId: "F2-302", title: "Second Floor - Boardroom", floor: "Second" },
-  { nodeId: "F2-303", title: "Second Floor - Break Room", floor: "Second" },
-];
 
 export const AssignmentInterface = ({ 
   rooms, 
   headers, 
   assignments, 
-  onAssignmentUpdate 
+  panoramas,
+  onAssignmentUpdate,
+  onRequestUpload,
 }: AssignmentInterfaceProps) => {
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [selectedPanoramas, setSelectedPanoramas] = useState<string[]>([]);
@@ -68,13 +56,13 @@ export const AssignmentInterface = ({
     });
   }, [rooms, roomSearch]);
 
-  const filteredPanoramas = useMemo(() => {
-    if (!panoSearch) return MOCK_PANORAMAS;
-    return MOCK_PANORAMAS.filter(pano => 
+const filteredPanoramas = useMemo(() => {
+    if (!panoSearch) return panoramas;
+    return panoramas.filter(pano => 
       pano.title.toLowerCase().includes(panoSearch.toLowerCase()) ||
       pano.nodeId.toLowerCase().includes(panoSearch.toLowerCase())
     );
-  }, [panoSearch]);
+  }, [panoSearch, panoramas]);
 
   const getAssignmentCount = (roomId: string) => {
     const assignment = assignments.find(a => a.roomId === roomId);
@@ -89,10 +77,10 @@ export const AssignmentInterface = ({
       const roomId = room.id;
       const roomCode = room.data[0]?.toString().toUpperCase() || '';
       
-      // Find matching panoramas
-      const matchingPanos = MOCK_PANORAMAS.filter(pano => {
+// Find matching panoramas
+      const matchingPanos = panoramas.filter(pano => {
         const nodeId = pano.nodeId.toUpperCase();
-        return nodeId.includes(roomCode) || roomCode.includes(nodeId.split('-')[1] || '');
+        return nodeId.includes(roomCode) || roomCode.includes((nodeId.split('-')[1] || ''));
       });
 
       if (matchingPanos.length > 0) {
@@ -311,7 +299,7 @@ export const AssignmentInterface = ({
                     <Separator className="my-2" />
                     <div className="space-y-1">
                       {assignment.panoramaIds.slice(0, 3).map(panoId => {
-                        const pano = MOCK_PANORAMAS.find(p => p.nodeId === panoId);
+                        const pano = panoramas.find(p => p.nodeId === panoId);
                         return (
                           <div key={panoId} className="text-xs">
                             {pano?.title || panoId}

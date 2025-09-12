@@ -22,9 +22,9 @@ const CATEGORIES = {
   basic: { name: "Basic Info", color: "bg-primary" },
   fabric: { name: "Fabric & Finishes", color: "bg-vue-green" },
   fittings: { name: "Fittings & Equipment", color: "bg-sync-blue" },
-  services: { name: "Services (M&E)", color: "bg-amber-500" },
-  protection: { name: "Protection & Alarms", color: "bg-red-500" },
-  misc: { name: "Miscellaneous", color: "bg-purple-500" },
+  services: { name: "Services (M&E)", color: "bg-sync-blue" },
+  protection: { name: "Protection & Alarms", color: "bg-destructive" },
+  misc: { name: "Miscellaneous", color: "bg-purple" },
 };
 
 export const RoomsTable = ({ rooms, headers, onRoomUpdate, onRoomSelect }: RoomsTableProps) => {

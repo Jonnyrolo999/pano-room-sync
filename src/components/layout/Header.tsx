@@ -1,4 +1,4 @@
-import { Upload, Database, Link2, Play } from "lucide-react";
+import { Upload, Database, Link2, Play, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
@@ -10,6 +10,7 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
   const tabs = [
     { id: "import", label: "Import Room Data", icon: Upload },
     { id: "rooms", label: "Rooms Table", icon: Database },
+    { id: "panoramas", label: "Panoramas", icon: ImageIcon },
     { id: "assign", label: "Assign Panoramas", icon: Link2 },
     { id: "viewer", label: "Viewer", icon: Play },
   ];

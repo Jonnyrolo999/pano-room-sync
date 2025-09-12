@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { ImportInterface } from "@/components/import/ImportInterface";
 import { RoomsTable } from "@/components/rooms/RoomsTable";
 import { AssignmentInterface } from "@/components/assign/AssignmentInterface";
 import { ViewerPanel } from "@/components/viewer/ViewerPanel";
+import { PanoramasManager } from "@/components/panoramas/PanoramasManager";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +21,12 @@ interface Assignment {
   panoramaIds: string[];
 }
 
+interface Panorama {
+  nodeId: string;
+  title: string;
+  floor?: string;
+}
+
 const MOCK_NODES = ["G-101", "G-102", "G-103", "F1-201", "F1-202", "F2-301"];
 
 const Index = () => {
@@ -27,8 +34,19 @@ const Index = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [headers, setHeaders] = useState<{ row1: string[]; row2: string[] }>({ row1: [], row2: [] });
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [panoramas, setPanoramas] = useState<Panorama[]>([]);
   const [currentNodeId, setCurrentNodeId] = useState("G-101");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Keep current node valid if panoramas list changes
+    if (panoramas.length > 0) {
+      const ids = panoramas.map(p => p.nodeId);
+      if (!ids.includes(currentNodeId)) {
+        setCurrentNodeId(ids[0]);
+      }
+    }
+  }, [panoramas]);
 
   const handleImportComplete = (data: any[][], importHeaders: { row1: string[]; row2: string[] }) => {
     const processedRooms: Room[] = data.map((row, index) => ({
@@ -91,6 +109,14 @@ const Index = () => {
           />
         );
       
+      case "panoramas":
+        return (
+          <PanoramasManager
+            panoramas={panoramas}
+            onChange={setPanoramas}
+          />
+        );
+
       case "assign":
         if (rooms.length === 0) {
           return (
@@ -107,11 +133,14 @@ const Index = () => {
             rooms={rooms}
             headers={headers}
             assignments={assignments}
+            panoramas={panoramas}
             onAssignmentUpdate={setAssignments}
+            onRequestUpload={() => setActiveTab("panoramas")}
           />
         );
       
       case "viewer":
+        const nodeOptions = panoramas.length > 0 ? panoramas.map(p => p.nodeId) : MOCK_NODES;
         return (
           <div className="flex gap-6 h-[calc(100vh-8rem)]">
             {/* Viewer Area */}
@@ -129,10 +158,10 @@ const Index = () => {
                     <div className="flex items-center space-x-2">
                       <Select value={currentNodeId} onValueChange={setCurrentNodeId}>
                         <SelectTrigger className="w-48">
-                          <SelectValue />
+                          <SelectValue placeholder="Select node" />
                         </SelectTrigger>
                         <SelectContent>
-                          {MOCK_NODES.map(nodeId => (
+                          {nodeOptions.map(nodeId => (
                             <SelectItem key={nodeId} value={nodeId}>
                               {nodeId}
                             </SelectItem>
