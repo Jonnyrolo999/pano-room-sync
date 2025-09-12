@@ -11,9 +11,15 @@ import { useFloorplanStore } from "@/stores/floorplanStore";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<AppTab>("editor");
-  const { building, setBuilding } = useBuildingStore();
+  const { 
+    building, 
+    floors, 
+    setBuilding, 
+    setFloors, 
+    setActiveFloor 
+  } = useBuildingStore();
 
-  // Initialize with a mock building if none exists
+  // Initialize with a mock building and floor if none exists
   useEffect(() => {
     if (!building) {
       setBuilding({
@@ -24,7 +30,21 @@ const Index = () => {
         updatedAt: new Date()
       });
     }
-  }, [building, setBuilding]);
+
+    // Initialize with a default floor if none exists
+    if (floors.length === 0) {
+      const defaultFloor = {
+        id: 'floor-1',
+        buildingId: 'building-1',
+        name: 'Ground Floor',
+        orderIndex: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      setFloors([defaultFloor]);
+      setActiveFloor('floor-1');
+    }
+  }, [building, floors, setBuilding, setFloors, setActiveFloor]);
 
 
 

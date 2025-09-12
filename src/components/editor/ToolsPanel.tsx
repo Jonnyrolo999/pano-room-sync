@@ -8,10 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VisibilityFilterControl } from "./VisibilityFilterControl";
-import { RoomsList } from "./RoomsList";
 import { UnassignedPanosList } from "./UnassignedPanosList";
 import { FloorPlanUploader } from "./FloorPlanUploader";
-import { RoomsImporter } from "./RoomsImporter";
+import { FullRoomsTable } from "../rooms/FullRoomsTable";
 import { useFloorplanStore } from "@/stores/floorplanStore";
 
 export const ToolsPanel = () => {
@@ -64,9 +63,8 @@ export const ToolsPanel = () => {
             <FloorPlanUploader />
           </TabsContent>
           
-          <TabsContent value="rooms" className="flex-1 overflow-hidden m-0 p-4 space-y-4">
-            <RoomsImporter />
-            <RoomsList />
+          <TabsContent value="rooms" className="flex-1 overflow-hidden m-0 p-0">
+            <FullRoomsTable />
           </TabsContent>
           
           <TabsContent value="panos" className="flex-1 overflow-hidden m-0 p-4">

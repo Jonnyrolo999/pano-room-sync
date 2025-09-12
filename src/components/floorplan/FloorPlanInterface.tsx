@@ -12,6 +12,7 @@ import { PanoramaViewer } from "../viewer/PanoramaViewer";
 import { MiniMapCard } from "./MiniMapCard";
 import { PanoViewerCard } from "./PanoViewerCard";
 import { ContextInfoCard } from "./ContextInfoCard";
+import { useBuildingStore } from "@/stores/buildingStore";
 
 interface Room {
   id: string;
@@ -60,6 +61,8 @@ interface FloorPlanInterfaceProps {
 }
 
 export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelect }: FloorPlanInterfaceProps) => {
+  const { getActiveFloor } = useBuildingStore();
+  const activeFloor = getActiveFloor();
   const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(null);
   const [buildingName, setBuildingName] = useState("");
   const [floorName, setFloorName] = useState("");
@@ -81,18 +84,31 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   const [lockedSelection, setLockedSelection] = useState(false);
   const [hoveredItemId, setHoveredItemId] = useState<string>("");
 
-  // Load state from localStorage on mount
+  // Load floor plan from building store
   useEffect(() => {
+    if (activeFloor?.planImageUrl) {
+      const floorPlanFromStore: FloorPlan = {
+        id: activeFloor.id,
+        buildingName: "Building", // You can enhance this
+        floorName: activeFloor.name,
+        imagePath: activeFloor.planImageUrl,
+        scale: activeFloor.calibrationJson?.pixelsPerMeter
+      };
+      setFloorPlan(floorPlanFromStore);
+      setBuildingName("Building");
+      setFloorName(activeFloor.name);
+      setScale(activeFloor.calibrationJson?.pixelsPerMeter);
+    } else {
+      setFloorPlan(null);
+    }
+
+    // Load state from localStorage on mount
     const savedState = localStorage.getItem('floorplan-editor-state');
     if (savedState) {
       try {
         const state = JSON.parse(savedState);
-        if (state.floorPlan) setFloorPlan(state.floorPlan);
         if (state.roomPolygons) setRoomPolygons(state.roomPolygons);
         if (state.panoMarkers) setPanoMarkers(state.panoMarkers);
-        if (state.buildingName) setBuildingName(state.buildingName);
-        if (state.floorName) setFloorName(state.floorName);
-        if (state.scale) setScale(state.scale);
         if (state.unsavedChanges) setUnsavedChanges(state.unsavedChanges);
         if (state.interactionFilter) setInteractionFilter(state.interactionFilter);
         if (state.lockedSelection) setLockedSelection(state.lockedSelection);
@@ -101,10 +117,8 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
       } catch (error) {
         console.warn('Failed to load saved state:', error);
       }
-      // Update the canvas to show the uploaded floor plan
-      // This will be handled by the EditorInterface component
     }
-  }, []);
+  }, [activeFloor]);
 
   // Save state to localStorage when it changes
   useEffect(() => {
