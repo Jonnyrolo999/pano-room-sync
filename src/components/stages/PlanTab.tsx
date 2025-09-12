@@ -9,7 +9,6 @@ import { FileImage, Upload, Settings, Info } from "lucide-react";
 import { useBuildingStore } from "@/stores/buildingStore";
 import { useFloorplanStore } from "@/stores/floorplanStore";
 import { toast } from "sonner";
-import { toast } from "sonner";
 
 export const PlanTab = () => {
   const { getActiveFloor, updateFloor } = useBuildingStore();
