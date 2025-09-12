@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { ImportInterface } from "@/components/import/ImportInterface";
-import { RoomsTable } from "@/components/rooms/RoomsTable";
-import { AssignmentInterface } from "@/components/assign/AssignmentInterface";
+import { EditableRoomsTable } from "@/components/rooms/EditableRoomsTable";
+import { EnhancedAssignmentInterface } from "@/components/assign/EnhancedAssignmentInterface";
 import { ViewerPanel } from "@/components/viewer/ViewerPanel";
 import { PanoramaViewer } from "@/components/viewer/PanoramaViewer";
 import { PanoramasManager } from "@/components/panoramas/PanoramasManager";
@@ -15,11 +15,13 @@ import { Play, RotateCcw } from "lucide-react";
 interface Room {
   id: string;
   data: any[];
+  masterNodeId?: string;
 }
 
 interface Assignment {
   roomId: string;
   panoramaIds: string[];
+  masterNodeId?: string;
 }
 
 interface Panorama {
@@ -62,10 +64,14 @@ const Index = () => {
     setActiveTab("rooms");
   };
 
-  const handleRoomUpdate = (roomId: string, data: any[]) => {
+  const handleRoomUpdate = (roomId: string, data: any[], masterNodeId?: string) => {
     setRooms(prev => prev.map(room => 
-      room.id === roomId ? { ...room, data } : room
+      room.id === roomId ? { ...room, data, masterNodeId } : room
     ));
+  };
+
+  const handleHeadersUpdate = (newHeaders: { row1: string[]; row2: string[] }) => {
+    setHeaders(newHeaders);
   };
 
   const handleRoomSelect = (roomId: string) => {
@@ -104,11 +110,13 @@ const Index = () => {
           );
         }
         return (
-          <RoomsTable
+          <EditableRoomsTable
             rooms={rooms}
             headers={headers}
             onRoomUpdate={handleRoomUpdate}
             onRoomSelect={handleRoomSelect}
+            onHeadersUpdate={handleHeadersUpdate}
+            availableNodes={panoramas.map(p => p.nodeId)}
           />
         );
       
@@ -132,12 +140,13 @@ const Index = () => {
           );
         }
         return (
-          <AssignmentInterface
+          <EnhancedAssignmentInterface
             rooms={rooms}
             headers={headers}
             assignments={assignments}
             panoramas={panoramas}
             onAssignmentUpdate={setAssignments}
+            onRoomUpdate={handleRoomUpdate}
             onRequestUpload={() => setActiveTab("panoramas")}
           />
         );
@@ -183,6 +192,8 @@ const Index = () => {
                           <PanoramaViewer 
                             imageUrl={currentPanorama.imageUrl}
                             nodeId={currentPanorama.nodeId}
+                            roomData={getCurrentRoom()?.data}
+                            headers={headers}
                           />
                         );
                       } else {

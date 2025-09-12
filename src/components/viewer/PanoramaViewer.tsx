@@ -1,8 +1,11 @@
-import { useRef, Suspense } from "react";
+import { useRef, Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
+import { PanoramaHotspot } from "./PanoramaHotspot";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface PanoramaSphereProps {
   imageUrl: string;
@@ -15,10 +18,10 @@ function PanoramaSphere({ imageUrl }: PanoramaSphereProps) {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.flipY = false;
+  texture.flipY = true; // Fix upside-down panorama
 
   return (
-    <mesh>
+    <mesh scale={[1, -1, 1]}>
       <sphereGeometry args={[50, 60, 40]} />
       <meshBasicMaterial 
         map={texture} 
@@ -29,13 +32,25 @@ function PanoramaSphere({ imageUrl }: PanoramaSphereProps) {
   );
 }
 
+interface Hotspot {
+  id: string;
+  position: THREE.Vector3;
+  label: string;
+  description?: string;
+  fieldCode?: string;
+}
+
 interface PanoramaViewerProps {
   imageUrl: string;
   nodeId: string;
+  roomData?: any[];
+  headers?: { row1: string[]; row2: string[] };
 }
 
-export const PanoramaViewer = ({ imageUrl, nodeId }: PanoramaViewerProps) => {
+export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers }: PanoramaViewerProps) => {
   const controlsRef = useRef<any>();
+  const [hotspots, setHotspots] = useState<Hotspot[]>([]);
+  const [addingHotspot, setAddingHotspot] = useState(false);
 
   return (
     <div className="relative w-full h-full bg-background">
@@ -51,6 +66,25 @@ export const PanoramaViewer = ({ imageUrl, nodeId }: PanoramaViewerProps) => {
       >
         <Suspense fallback={null}>
           <PanoramaSphere imageUrl={imageUrl} />
+          
+          {/* Hotspots */}
+          {hotspots.map(hotspot => (
+            <PanoramaHotspot
+              key={hotspot.id}
+              position={hotspot.position}
+              label={hotspot.label}
+              description={hotspot.description}
+              onClick={() => {
+                if (hotspot.fieldCode && roomData && headers) {
+                  const fieldIndex = headers.row2.findIndex(code => code === hotspot.fieldCode);
+                  if (fieldIndex >= 0) {
+                    const value = roomData[fieldIndex];
+                    toast.info(`${hotspot.label}: ${value || 'No data'}`);
+                  }
+                }
+              }}
+            />
+          ))}
         </Suspense>
         
         <OrbitControls
@@ -79,10 +113,29 @@ export const PanoramaViewer = ({ imageUrl, nodeId }: PanoramaViewerProps) => {
         <div />
       </Suspense>
 
-      {/* Node ID indicator */}
-      <div className="absolute top-4 left-4 bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
-        <p className="text-xs font-mono text-muted-foreground">Node ID</p>
-        <p className="text-sm font-medium">{nodeId}</p>
+      {/* Controls */}
+      <div className="absolute top-4 left-4 space-y-2">
+        <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
+          <p className="text-xs font-mono text-muted-foreground">Node ID</p>
+          <p className="text-sm font-medium">{nodeId}</p>
+        </div>
+        
+        <Button
+          variant={addingHotspot ? "default" : "outline"}
+          size="sm"
+          onClick={() => setAddingHotspot(!addingHotspot)}
+          className="bg-background/80 backdrop-blur-sm"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          {addingHotspot ? "Cancel" : "Add Hotspot"}
+        </Button>
+        
+        {hotspots.length > 0 && (
+          <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
+            <p className="text-xs font-mono text-muted-foreground">Hotspots</p>
+            <p className="text-sm font-medium">{hotspots.length}</p>
+          </div>
+        )}
       </div>
     </div>
   );
