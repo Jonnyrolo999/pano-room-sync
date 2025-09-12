@@ -57,7 +57,6 @@ interface PanoramaViewerProps {
   highlightedField?: string | null;
 }
 
-
 export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotClick, highlightedField }: PanoramaViewerProps) => {
   const controlsRef = useRef<any>();
   const [hotspots, setHotspots] = useState<HotspotData[]>([]);
@@ -127,7 +126,11 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
         }}
       >
         <Suspense fallback={null}>
-          <PanoramaSphere imageUrl={imageUrl} isPlacementMode={isPlacementMode} onPlace={(point) => handlePlaceHotspot({ x: point.x, y: point.y, z: point.z })} />
+          <PanoramaSphere 
+            imageUrl={imageUrl} 
+            isPlacementMode={isPlacementMode && selectedField !== null} 
+            onPlace={(point) => handlePlaceHotspot({ x: point.x, y: point.y, z: point.z })} 
+          />
           
           {/* Hotspots */}
           {hotspots.map(hotspot => {
@@ -158,7 +161,6 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
               />
             );
           })}
-
         </Suspense>
         
         <OrbitControls
