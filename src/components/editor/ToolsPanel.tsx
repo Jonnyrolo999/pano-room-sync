@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VisibilityFilterControl } from "./VisibilityFilterControl";
 import { RoomsList } from "./RoomsList";
 import { UnassignedPanosList } from "./UnassignedPanosList";
+import { FloorPlanUploader } from "./FloorPlanUploader";
+import { RoomsImporter } from "./RoomsImporter";
 import { useFloorplanStore } from "@/stores/floorplanStore";
 
 export const ToolsPanel = () => {
@@ -51,13 +53,19 @@ export const ToolsPanel = () => {
       {/* Main content */}
       <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="rooms" className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-3 mx-4 mt-2">
+          <TabsList className="grid w-full grid-cols-4 mx-4 mt-2">
+            <TabsTrigger value="plan" className="text-xs">Plan</TabsTrigger>
             <TabsTrigger value="rooms" className="text-xs">Rooms</TabsTrigger>
             <TabsTrigger value="panos" className="text-xs">Panos</TabsTrigger>
             <TabsTrigger value="settings" className="text-xs">Settings</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="rooms" className="flex-1 overflow-hidden m-0 p-4">
+          <TabsContent value="plan" className="flex-1 overflow-auto m-0 p-4 space-y-4">
+            <FloorPlanUploader />
+          </TabsContent>
+          
+          <TabsContent value="rooms" className="flex-1 overflow-hidden m-0 p-4 space-y-4">
+            <RoomsImporter />
             <RoomsList />
           </TabsContent>
           

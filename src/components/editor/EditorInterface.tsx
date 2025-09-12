@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FloorPlanCanvas } from "@/components/floorplan/FloorPlanCanvas";
 import { ToolsPanel } from "./ToolsPanel";
 import { useBuildingStore } from "@/stores/buildingStore";
@@ -18,6 +19,9 @@ export const EditorInterface = () => {
     addRoom,
     updateRoom
   } = useFloorplanStore();
+  
+  // Local state for UI
+  const [hoveredItemId, setHoveredItemId] = useState("");
   
   const activeFloor = getActiveFloor();
 
@@ -99,13 +103,16 @@ export const EditorInterface = () => {
     });
   };
 
+  // Map mode to activeTool expected by FloorPlanCanvas
+  const activeTool = mode === 'edit' ? 'select' : mode === 'dropPano' ? 'dropPano' : mode as "select" | "draw" | "dropPano";
+  
   return (
     <div className="h-full flex min-h-0">
       {/* Left: Canvas */}
       <div className="flex-1 min-w-0">
         <FloorPlanCanvas
           floorPlan={floorPlan}
-          activeTool={mode === 'edit' ? 'select' : mode === 'dropPano' ? 'dropPano' : mode as "select" | "draw" | "dropPano"}
+          activeTool={activeTool}
           roomPolygons={roomPolygons}
           panoMarkers={panoMarkers}
           onAddPolygon={handleAddPolygon}
@@ -118,8 +125,8 @@ export const EditorInterface = () => {
           interactionFilter={visibilityFilter}
           selectedRoomId={selectedRoomId || ""}
           selectedPanoId={selectedPanoId || ""}
-          hoveredItemId=""
-          onHoverItem={() => {}}
+          hoveredItemId={hoveredItemId}
+          onHoverItem={setHoveredItemId}
         />
       </div>
       

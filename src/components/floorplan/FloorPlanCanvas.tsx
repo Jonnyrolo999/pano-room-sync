@@ -109,7 +109,7 @@ export const FloorPlanCanvas = ({
     };
     
     img.crossOrigin = "anonymous"; // Handle CORS if needed
-    img.src = floorPlan.imagePath;
+    img.src = floorPlan.imagePath || "/placeholder.svg"; // Use uploaded floor plan or fallback
     
     console.log("Loading image from:", floorPlan.imagePath);
   }, [floorPlan.imagePath]);

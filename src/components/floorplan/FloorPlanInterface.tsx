@@ -101,6 +101,8 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
       } catch (error) {
         console.warn('Failed to load saved state:', error);
       }
+      // Update the canvas to show the uploaded floor plan
+      // This will be handled by the EditorInterface component
     }
   }, []);
 
@@ -195,8 +197,7 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
 
       await page.render({
         canvasContext: context,
-        viewport,
-        canvas,
+        viewport
       }).promise;
 
       console.info(`PDF rendered successfully: ${canvas.width}x${canvas.height} at ${scale}x scale`);
