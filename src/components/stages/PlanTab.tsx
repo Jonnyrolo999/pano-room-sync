@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { FloorPlanUploader } from "@/components/editor/FloorPlanUploader";
 import { FloorPlanCanvas } from "@/components/floorplan/FloorPlanCanvas";
+import { CalibrationTool } from "@/components/measure/CalibrationTool";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { FileImage, Upload, Settings, Info } from "lucide-react";
 import { useBuildingStore } from "@/stores/buildingStore";
 import { useFloorplanStore } from "@/stores/floorplanStore";
@@ -14,11 +14,73 @@ export const PlanTab = () => {
   const { getActiveFloor, updateFloor } = useBuildingStore();
   const { rooms, panos } = useFloorplanStore();
   const [showUploader, setShowUploader] = useState(false);
-  const [showCalibrate, setShowCalibrate] = useState(false);
-  const [pixelsPerMeter, setPixelsPerMeter] = useState<number>(1);
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  const [calibrationPoints, setCalibrationPoints] = useState<{
+    p1: { x: number; y: number };
+    p2: { x: number; y: number };
+    pxLength: number;
+  } | null>(null);
   const activeFloor = getActiveFloor();
 
   const hasFloorPlan = activeFloor?.planImageUrl;
+
+  // Handle calibration
+  const handleToggleCalibration = () => {
+    setIsCalibrating(!isCalibrating);
+    setCalibrationPoints(null);
+  };
+
+  const handleCanvasClick = (point: { x: number; y: number }) => {
+    if (!isCalibrating) return;
+    
+    if (!calibrationPoints) {
+      // First point
+      setCalibrationPoints({
+        p1: point,
+        p2: point,
+        pxLength: 0
+      });
+    } else if (calibrationPoints.pxLength === 0) {
+      // Second point - calculate distance
+      const dx = point.x - calibrationPoints.p1.x;
+      const dy = point.y - calibrationPoints.p1.y;
+      const pxLength = Math.sqrt(dx * dx + dy * dy);
+      
+      setCalibrationPoints({
+        ...calibrationPoints,
+        p2: point,
+        pxLength
+      });
+    }
+  };
+
+  const handleCompleteCalibration = (distance: number, unit: 'meters' | 'feet') => {
+    if (!calibrationPoints || !activeFloor) return;
+    
+    // Convert to meters if needed
+    const distanceInMeters = unit === 'feet' ? distance / 3.28084 : distance;
+    const pixelsPerMeter = calibrationPoints.pxLength / distanceInMeters;
+    
+    const calibrationJson = {
+      pixelsPerMeter,
+      metersPerPixel: 1 / pixelsPerMeter,
+      segments: [{
+        p1: calibrationPoints.p1,
+        p2: calibrationPoints.p2,
+        pxLength: calibrationPoints.pxLength,
+        meters: distanceInMeters,
+        unit
+      }],
+      rotation: activeFloor.calibrationJson?.rotation || 0,
+      originX: activeFloor.calibrationJson?.originX || 0,
+      originY: activeFloor.calibrationJson?.originY || 0
+    };
+    
+    updateFloor(activeFloor.id, { calibrationJson });
+    setIsCalibrating(false);
+    setCalibrationPoints(null);
+    toast.success(`Scale calibrated: ${pixelsPerMeter.toFixed(2)} px/m`);
+  };
 
   // Prepare floor plan data for canvas
   const floorPlan = activeFloor ? {
@@ -74,6 +136,7 @@ export const PlanTab = () => {
             onRoomClick={() => {}}
             onPanoClick={() => {}}
             onUpdatePolygon={() => {}}
+            onCanvasClick={handleCanvasClick}
             snapToGrid={false}
             gridSize={20}
             interactionFilter="both"
@@ -81,6 +144,7 @@ export const PlanTab = () => {
             selectedPanoId=""
             hoveredItemId=""
             onHoverItem={() => {}}
+            calibrationPoints={calibrationPoints}
           />
         ) : (
           <div className="h-full flex items-center justify-center bg-muted/10">
@@ -141,7 +205,7 @@ export const PlanTab = () => {
                     <Upload className="h-3 w-3" />
                     Replace Plan
                   </Button>
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => { setPixelsPerMeter(activeFloor?.calibrationJson?.pixelsPerMeter || 1); setShowCalibrate(true); }}>
+                  <Button variant="outline" size="sm" className="gap-1">
                     <Settings className="h-3 w-3" />
                     Calibrate
                   </Button>
@@ -175,25 +239,14 @@ export const PlanTab = () => {
             </CardContent>
           </Card>
 
-          {/* Configuration */}
+          {/* Calibration Tool */}
           {hasFloorPlan && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Configuration</CardTitle>
-                <CardDescription>
-                  Calibrate scale and adjust settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { setPixelsPerMeter(activeFloor?.calibrationJson?.pixelsPerMeter || 1); setShowCalibrate(true); }}>
-                  <Settings className="h-4 w-4" />
-                  Calibrate Scale
-                </Button>
-                <div className="text-xs text-muted-foreground">
-                  Set two points with known distance to establish accurate measurements
-                </div>
-              </CardContent>
-            </Card>
+            <CalibrationTool
+              isActive={isCalibrating}
+              onToggle={handleToggleCalibration}
+              currentCalibration={calibrationPoints}
+              onCompleteCalibration={handleCompleteCalibration}
+            />
           )}
 
           {/* Info */}
@@ -231,32 +284,6 @@ export const PlanTab = () => {
         </div>
       )}
 
-      {/* Calibrate Modal */}
-      {showCalibrate && activeFloor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-2">Calibrate Scale</h3>
-            <p className="text-sm text-muted-foreground mb-4">Set pixels per meter for accurate measurements.</p>
-            <div className="space-y-2">
-              <label className="text-sm">Pixels per meter</label>
-              <Input type="number" step="0.01" value={pixelsPerMeter} onChange={(e) => setPixelsPerMeter(parseFloat(e.target.value) || 1)} />
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button 
-                className="flex-1" 
-                onClick={() => {
-                  updateFloor(activeFloor.id, { calibrationJson: { ...(activeFloor.calibrationJson || { rotation: 0, originX: 0, originY: 0 }), pixelsPerMeter } });
-                  toast.success('Calibration saved');
-                  setShowCalibrate(false);
-                }}
-              >
-                Save
-              </Button>
-              <Button variant="outline" className="flex-1" onClick={() => setShowCalibrate(false)}>Cancel</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

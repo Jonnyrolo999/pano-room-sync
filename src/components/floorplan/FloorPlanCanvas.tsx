@@ -37,12 +37,25 @@ interface FloorPlanCanvasProps {
   onRoomClick: (roomId: string) => void;
   onPanoClick: (panoId: string) => void;
   onUpdatePolygon: (polygonId: string, points: { x: number; y: number }[]) => void;
+  onCanvasClick?: (point: { x: number; y: number }) => void;
   snapToGrid: boolean;
   gridSize: number;
   interactionFilter: "rooms" | "panos" | "both";
   selectedRoomId: string;
   selectedPanoId: string;
   hoveredItemId: string;
+  onHoverItem: (id: string) => void;
+  calibrationPoints?: {
+    p1: { x: number; y: number };
+    p2: { x: number; y: number };
+    pxLength: number;
+  } | null;
+  measurementPoints?: {
+    p1: { x: number; y: number };
+    p2: { x: number; y: number };
+    pxLength: number;
+  } | null;
+}
   onHoverItem: (itemId: string) => void;
 }
 
@@ -63,6 +76,7 @@ export const FloorPlanCanvas = ({
   selectedPanoId,
   hoveredItemId,
   onHoverItem
+}: FloorPlanCanvasProps) => {
 }: FloorPlanCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
