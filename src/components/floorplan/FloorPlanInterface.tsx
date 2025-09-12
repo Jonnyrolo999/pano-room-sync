@@ -80,8 +80,16 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
 
     setIsUploading(true);
     try {
-      // Create object URL for the uploaded file
-      const imageUrl = URL.createObjectURL(file);
+      let imageUrl: string;
+      
+      if (file.type === 'application/pdf') {
+        // Handle PDF files - convert first page to image
+        const arrayBuffer = await file.arrayBuffer();
+        imageUrl = await convertPdfToImage(arrayBuffer);
+      } else {
+        // Handle image files directly
+        imageUrl = URL.createObjectURL(file);
+      }
       
       const newFloorPlan: FloorPlan = {
         id: `floor_${Date.now()}`,
@@ -94,11 +102,45 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
       setFloorPlan(newFloorPlan);
       toast.success("Floor plan uploaded successfully");
     } catch (error) {
-      toast.error("Failed to upload floor plan");
+      console.error("Upload error:", error);
+      toast.error("Failed to upload floor plan: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsUploading(false);
     }
   }, [buildingName, floorName, scale]);
+
+  const convertPdfToImage = async (arrayBuffer: ArrayBuffer): Promise<string> => {
+    try {
+      // Dynamic import to handle PDF.js
+      const pdfjsLib = await import('pdfjs-dist');
+      
+      // Set worker path
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1); // Get first page
+      
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      if (!context) throw new Error("Could not get canvas context");
+      
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport,
+        canvas: canvas
+      }).promise;
+      
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error("PDF conversion error:", error);
+      throw new Error("Failed to convert PDF to image");
+    }
+  };
 
   const handleAddPolygon = useCallback((points: { x: number; y: number }[]) => {
     if (!selectedRoomId) {
@@ -265,14 +307,19 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
             </div>
             
             <div>
-              <Label htmlFor="scale">Scale (optional)</Label>
+              <Label htmlFor="scale">Scale (pixels per meter)</Label>
               <Input
                 id="scale"
                 type="number"
+                step="0.1"
+                min="0.1"
                 value={scale || ""}
                 onChange={(e) => setScale(e.target.value ? parseFloat(e.target.value) : undefined)}
-                placeholder="Pixels per meter"
+                placeholder="e.g., 10 (10 pixels = 1 meter)"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Optional: Set how many pixels represent 1 meter for measurements
+              </p>
             </div>
 
             <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">

@@ -73,6 +73,7 @@ export const FloorPlanCanvas = ({
     // Load floor plan image
     const img = new Image();
     img.onload = () => {
+      console.log("Image loaded successfully:", img.width, "x", img.height);
       setImage(img);
       
       // Fit image to canvas
@@ -94,7 +95,15 @@ export const FloorPlanCanvas = ({
         });
       }
     };
+    
+    img.onerror = (error) => {
+      console.error("Failed to load image:", error, floorPlan.imagePath);
+    };
+    
+    img.crossOrigin = "anonymous"; // Handle CORS if needed
     img.src = floorPlan.imagePath;
+    
+    console.log("Loading image from:", floorPlan.imagePath);
   }, [floorPlan.imagePath]);
 
   // Render canvas content
@@ -319,16 +328,26 @@ export const FloorPlanCanvas = ({
 
   return (
     <div className="relative w-full h-full" ref={containerRef}>
+      {/* Loading indicator */}
+      {!image && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-sm text-muted-foreground">Loading floor plan...</p>
+          </div>
+        </div>
+      )}
+      
       {/* Canvas Controls */}
       <div className="absolute top-4 right-4 space-y-2 z-10">
         <div className="bg-background/80 backdrop-blur-sm rounded-lg p-2 border space-y-1">
-          <Button size="sm" variant="outline" onClick={() => handleZoom(0.2)}>
+          <Button size="sm" variant="outline" onClick={() => handleZoom(0.2)} disabled={!image}>
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" onClick={() => handleZoom(-0.2)}>
+          <Button size="sm" variant="outline" onClick={() => handleZoom(-0.2)} disabled={!image}>
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" onClick={handleReset}>
+          <Button size="sm" variant="outline" onClick={handleReset} disabled={!image}>
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
@@ -337,6 +356,13 @@ export const FloorPlanCanvas = ({
           <p className="text-xs font-mono text-muted-foreground">Zoom</p>
           <p className="text-sm font-medium">{(zoom * 100).toFixed(0)}%</p>
         </div>
+        
+        {image && (
+          <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
+            <p className="text-xs font-mono text-muted-foreground">Image</p>
+            <p className="text-sm font-medium">{image.width} × {image.height}</p>
+          </div>
+        )}
       </div>
 
       {/* Instructions */}
