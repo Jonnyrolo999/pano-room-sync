@@ -4,6 +4,7 @@ import { ImportInterface } from "@/components/import/ImportInterface";
 import { RoomsTable } from "@/components/rooms/RoomsTable";
 import { AssignmentInterface } from "@/components/assign/AssignmentInterface";
 import { ViewerPanel } from "@/components/viewer/ViewerPanel";
+import { PanoramaViewer } from "@/components/viewer/PanoramaViewer";
 import { PanoramasManager } from "@/components/panoramas/PanoramasManager";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ interface Panorama {
   nodeId: string;
   title: string;
   floor?: string;
+  fileName?: string;
+  imageUrl?: string;
 }
 
 const MOCK_NODES = ["G-101", "G-102", "G-103", "F1-201", "F1-202", "F2-301"];
@@ -171,23 +174,38 @@ const Index = () => {
                     </div>
                   </div>
                   
-                  {/* Mock Panorama Viewer */}
-                  <div className="flex-1 bg-gradient-subtle rounded-lg border-2 border-dashed border-border flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                        <Play className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium">360° Panorama Viewer</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Interactive panoramic view would load here
-                        </p>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Reset View
-                      </Button>
-                    </div>
+                  {/* Panorama Viewer */}
+                  <div className="flex-1 rounded-lg overflow-hidden">
+                    {(() => {
+                      const currentPanorama = panoramas.find(p => p.nodeId === currentNodeId);
+                      if (currentPanorama && currentPanorama.imageUrl) {
+                        return (
+                          <PanoramaViewer 
+                            imageUrl={currentPanorama.imageUrl}
+                            nodeId={currentPanorama.nodeId}
+                          />
+                        );
+                      } else {
+                        return (
+                          <div className="h-full bg-gradient-subtle rounded-lg border-2 border-dashed border-border flex items-center justify-center">
+                            <div className="text-center space-y-4">
+                              <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                                <Play className="h-8 w-8 text-primary" />
+                              </div>
+                              <div>
+                                <h4 className="font-medium">No Panorama Available</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  Upload panoramas in the Panoramas tab to view here
+                                </p>
+                              </div>
+                              <Button variant="outline" size="sm" onClick={() => setActiveTab("panoramas")}>
+                                Upload Panoramas
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
                 </CardContent>
               </Card>
