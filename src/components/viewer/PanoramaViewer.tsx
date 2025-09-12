@@ -1,9 +1,10 @@
-import { useRef, Suspense, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { useRef, Suspense, useState, useCallback } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Settings } from "lucide-react";
 import { PanoramaHotspot } from "./PanoramaHotspot";
+import { HotspotCreationInterface } from "./HotspotCreationInterface";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -18,10 +19,10 @@ function PanoramaSphere({ imageUrl }: PanoramaSphereProps) {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.flipY = true; // Fix upside-down panorama
+  texture.flipY = false; // Fix for upside-down panorama
 
   return (
-    <mesh scale={[1, -1, 1]}>
+    <mesh scale={[1, 1, 1]} name="panorama-sphere">
       <sphereGeometry args={[50, 60, 40]} />
       <meshBasicMaterial 
         map={texture} 
@@ -32,12 +33,13 @@ function PanoramaSphere({ imageUrl }: PanoramaSphereProps) {
   );
 }
 
-interface Hotspot {
+interface HotspotData {
   id: string;
-  position: THREE.Vector3;
-  label: string;
-  description?: string;
-  fieldCode?: string;
+  fieldCode: string;
+  fieldLabel: string;
+  position: { x: number; y: number; z: number };
+  icon: string;
+  color: string;
 }
 
 interface PanoramaViewerProps {
@@ -45,12 +47,114 @@ interface PanoramaViewerProps {
   nodeId: string;
   roomData?: any[];
   headers?: { row1: string[]; row2: string[] };
+  onHotspotClick?: (fieldCode: string) => void;
+  highlightedField?: string | null;
 }
 
-export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers }: PanoramaViewerProps) => {
+// Component to handle click events in the 3D scene
+function ClickHandler({ 
+  isPlacementMode, 
+  selectedField, 
+  selectedIcon, 
+  onPlaceHotspot 
+}: { 
+  isPlacementMode: boolean;
+  selectedField: { code: string; label: string } | null;
+  selectedIcon: string;
+  onPlaceHotspot: (position: { x: number; y: number; z: number }) => void;
+}) {
+  const { camera, raycaster, scene } = useThree();
+
+  const handleClick = useCallback((event: any) => {
+    if (!isPlacementMode || !selectedField) return;
+
+    // Convert mouse position to world coordinates
+    const mouse = new THREE.Vector2();
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    
+    // Find intersection with the panorama sphere
+    const sphere = scene.getObjectByName('panorama-sphere');
+    if (sphere) {
+      const intersects = raycaster.intersectObject(sphere);
+      if (intersects.length > 0) {
+        const point = intersects[0].point;
+        // Scale the position to be on the sphere surface
+        const normalizedPoint = point.normalize().multiplyScalar(25);
+        onPlaceHotspot({
+          x: normalizedPoint.x,
+          y: normalizedPoint.y,
+          z: normalizedPoint.z
+        });
+      }
+    }
+  }, [isPlacementMode, selectedField, onPlaceHotspot, camera, raycaster, scene]);
+
+  return (
+    <mesh onClick={handleClick} visible={false}>
+      <sphereGeometry args={[100, 32, 32]} />
+      <meshBasicMaterial transparent opacity={0} />
+    </mesh>
+  );
+}
+
+export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotClick, highlightedField }: PanoramaViewerProps) => {
   const controlsRef = useRef<any>();
-  const [hotspots, setHotspots] = useState<Hotspot[]>([]);
-  const [addingHotspot, setAddingHotspot] = useState(false);
+  const [hotspots, setHotspots] = useState<HotspotData[]>([]);
+  const [showHotspotInterface, setShowHotspotInterface] = useState(false);
+  const [isPlacementMode, setIsPlacementMode] = useState(false);
+  const [selectedField, setSelectedField] = useState<{ code: string; label: string } | null>(null);
+  const [selectedIcon] = useState("target");
+
+  const handleAddHotspot = useCallback((hotspotData: Omit<HotspotData, 'id'>) => {
+    const newHotspot: HotspotData = {
+      ...hotspotData,
+      id: `hotspot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    };
+    setHotspots(prev => [...prev, newHotspot]);
+    toast.success(`Hotspot created for "${hotspotData.fieldLabel}"`);
+  }, []);
+
+  const handleRemoveHotspot = useCallback((id: string) => {
+    setHotspots(prev => prev.filter(h => h.id !== id));
+    toast.success("Hotspot removed");
+  }, []);
+
+  const handlePlaceHotspot = useCallback((position: { x: number; y: number; z: number }) => {
+    if (!selectedField) return;
+    
+    const iconData = [
+      { name: "target", color: "#007acc" },
+      { name: "flame", color: "#ff6b35" },
+      { name: "plug", color: "#10b981" },
+      { name: "shield", color: "#ef4444" },
+      { name: "settings", color: "#8b5cf6" },
+      { name: "wrench", color: "#f59e0b" },
+      { name: "zap", color: "#eab308" },
+    ].find(icon => icon.name === selectedIcon) || { name: "target", color: "#007acc" };
+
+    handleAddHotspot({
+      fieldCode: selectedField.code,
+      fieldLabel: selectedField.label,
+      position,
+      icon: selectedIcon,
+      color: iconData.color,
+    });
+
+    setIsPlacementMode(false);
+    setSelectedField(null);
+  }, [selectedField, selectedIcon, handleAddHotspot]);
+
+  const handleTogglePlacementMode = useCallback(() => {
+    if (isPlacementMode) {
+      setIsPlacementMode(false);
+      setSelectedField(null);
+    } else {
+      setIsPlacementMode(true);
+    }
+  }, [isPlacementMode]);
 
   return (
     <div className="relative w-full h-full bg-background">
@@ -68,23 +172,42 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers }: Panorama
           <PanoramaSphere imageUrl={imageUrl} />
           
           {/* Hotspots */}
-          {hotspots.map(hotspot => (
-            <PanoramaHotspot
-              key={hotspot.id}
-              position={hotspot.position}
-              label={hotspot.label}
-              description={hotspot.description}
-              onClick={() => {
-                if (hotspot.fieldCode && roomData && headers) {
+          {hotspots.map(hotspot => {
+            const position = new THREE.Vector3(hotspot.position.x, hotspot.position.y, hotspot.position.z);
+            const isHighlighted = highlightedField === hotspot.fieldCode;
+            
+            return (
+              <PanoramaHotspot
+                key={hotspot.id}
+                position={position}
+                label={hotspot.fieldLabel}
+                description={roomData && headers ? (() => {
                   const fieldIndex = headers.row2.findIndex(code => code === hotspot.fieldCode);
-                  if (fieldIndex >= 0) {
-                    const value = roomData[fieldIndex];
-                    toast.info(`${hotspot.label}: ${value || 'No data'}`);
+                  const value = fieldIndex >= 0 ? roomData[fieldIndex] : null;
+                  return value || 'No data available';
+                })() : undefined}
+                onClick={() => {
+                  onHotspotClick?.(hotspot.fieldCode);
+                  if (roomData && headers) {
+                    const fieldIndex = headers.row2.findIndex(code => code === hotspot.fieldCode);
+                    if (fieldIndex >= 0) {
+                      const value = roomData[fieldIndex];
+                      toast.info(`${hotspot.fieldLabel}: ${value || 'No data'}`);
+                    }
                   }
-                }
-              }}
-            />
-          ))}
+                }}
+                isHighlighted={isHighlighted}
+              />
+            );
+          })}
+
+          {/* Click handler for hotspot placement */}
+          <ClickHandler
+            isPlacementMode={isPlacementMode}
+            selectedField={selectedField}
+            selectedIcon={selectedIcon}
+            onPlaceHotspot={handlePlaceHotspot}
+          />
         </Suspense>
         
         <OrbitControls
@@ -121,22 +244,47 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers }: Panorama
         </div>
         
         <Button
-          variant={addingHotspot ? "default" : "outline"}
+          variant={showHotspotInterface ? "default" : "outline"}
           size="sm"
-          onClick={() => setAddingHotspot(!addingHotspot)}
+          onClick={() => setShowHotspotInterface(!showHotspotInterface)}
           className="bg-background/80 backdrop-blur-sm"
         >
-          <Plus className="h-4 w-4 mr-1" />
-          {addingHotspot ? "Cancel" : "Add Hotspot"}
+          <Settings className="h-4 w-4 mr-1" />
+          {showHotspotInterface ? "Hide" : "Manage"} Hotspots
         </Button>
         
         {hotspots.length > 0 && (
           <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
-            <p className="text-xs font-mono text-muted-foreground">Hotspots</p>
+            <p className="text-xs font-mono text-muted-foreground">Active Hotspots</p>
             <p className="text-sm font-medium">{hotspots.length}</p>
           </div>
         )}
+
+        {isPlacementMode && (
+          <div className="bg-primary/10 border-primary rounded-lg px-3 py-2 border">
+            <p className="text-xs font-medium text-primary">Click on panorama to place hotspot</p>
+            <p className="text-xs text-muted-foreground">
+              {selectedField?.label || 'No field selected'}
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Hotspot Creation Interface */}
+      {showHotspotInterface && headers && (
+        <div className="absolute top-4 right-4">
+          <HotspotCreationInterface
+            headers={headers}
+            hotspots={hotspots}
+            onAddHotspot={handleAddHotspot}
+            onRemoveHotspot={handleRemoveHotspot}
+            isPlacementMode={isPlacementMode}
+            onTogglePlacementMode={handleTogglePlacementMode}
+            selectedField={selectedField}
+            onFieldSelect={setSelectedField}
+          />
+        </div>
+      )}
     </div>
   );
 };

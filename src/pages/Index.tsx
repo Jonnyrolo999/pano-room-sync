@@ -42,6 +42,7 @@ const Index = () => {
   const [panoramas, setPanoramas] = useState<Panorama[]>([]);
   const [currentNodeId, setCurrentNodeId] = useState("G-101");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [highlightedField, setHighlightedField] = useState<string | null>(null);
 
   useEffect(() => {
     // Keep current node valid if panoramas list changes
@@ -194,6 +195,8 @@ const Index = () => {
                             nodeId={currentPanorama.nodeId}
                             roomData={getCurrentRoom()?.data}
                             headers={headers}
+                            onHotspotClick={setHighlightedField}
+                            highlightedField={highlightedField}
                           />
                         );
                       } else {
@@ -227,6 +230,8 @@ const Index = () => {
               room={getCurrentRoom()}
               headers={headers}
               currentNodeId={currentNodeId}
+              highlightedField={highlightedField}
+              onFieldClick={setHighlightedField}
             />
           </div>
         );

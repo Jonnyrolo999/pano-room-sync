@@ -8,9 +8,10 @@ interface HotspotProps {
   label: string;
   description?: string;
   onClick?: () => void;
+  isHighlighted?: boolean;
 }
 
-export const PanoramaHotspot = ({ position, label, description, onClick }: HotspotProps) => {
+export const PanoramaHotspot = ({ position, label, description, onClick, isHighlighted = false }: HotspotProps) => {
   const meshRef = useRef<any>();
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
@@ -18,7 +19,8 @@ export const PanoramaHotspot = ({ position, label, description, onClick }: Hotsp
   useFrame((state) => {
     if (meshRef.current) {
       meshRef.current.lookAt(state.camera.position);
-      meshRef.current.scale.setScalar(hovered ? 1.2 : 1);
+      const baseScale = isHighlighted ? 1.3 : 1;
+      meshRef.current.scale.setScalar(hovered ? baseScale * 1.2 : baseScale);
     }
   });
 
@@ -40,19 +42,25 @@ export const PanoramaHotspot = ({ position, label, description, onClick }: Hotsp
       >
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshBasicMaterial 
-          color={new Color(hovered ? "#ff6b35" : "#007acc")}
+          color={new Color(
+            isHighlighted 
+              ? "#ff6b35" 
+              : hovered 
+              ? "#ff6b35" 
+              : "#007acc"
+          )}
           transparent
-          opacity={clicked ? 0.8 : hovered ? 0.9 : 0.7}
+          opacity={clicked ? 0.8 : hovered || isHighlighted ? 0.9 : 0.7}
         />
       </mesh>
 
       {/* Pulsing Ring Effect */}
-      <mesh scale={hovered ? [2, 2, 2] : [1.5, 1.5, 1.5]}>
+      <mesh scale={isHighlighted || hovered ? [2.5, 2.5, 2.5] : [1.5, 1.5, 1.5]}>
         <ringGeometry args={[0.8, 1, 32]} />
         <meshBasicMaterial 
-          color="#007acc"
+          color={isHighlighted ? "#ff6b35" : "#007acc"}
           transparent
-          opacity={hovered ? 0.3 : 0.1}
+          opacity={isHighlighted ? 0.4 : hovered ? 0.3 : 0.1}
         />
       </mesh>
 
