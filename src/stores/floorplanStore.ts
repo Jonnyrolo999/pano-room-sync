@@ -34,8 +34,11 @@ interface FloorplanState {
   updateRoom: (roomId: string, updates: Partial<Room>) => void;
   deleteRoom: (roomId: string) => void;
   
+  // Pano operations
+  addPano: (pano: Pano) => void;
   assignPanoToRoom: (panoId: string, roomId: string) => void;
   unassignPano: (panoId: string) => void;
+  setMasterPano: (roomId: string, panoId: string) => void;
   updatePanoPosition: (panoId: string, x: number, y: number) => void;
   
   // Computed
@@ -127,19 +130,43 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
     unsavedChanges: true
   })),
   
-  assignPanoToRoom: (panoId, roomId) => set((state) => ({
-    panos: state.panos.map(pano => 
-      pano.id === panoId ? { ...pano, roomId } : pano
-    ),
+  addPano: (pano) => set((state) => ({
+    panos: [...state.panos, pano],
     unsavedChanges: true
   })),
-  
-  unassignPano: (panoId) => set((state) => ({
-    panos: state.panos.map(pano => 
-      pano.id === panoId ? { ...pano, roomId: undefined } : pano
-    ),
-    unsavedChanges: true
-  })),
+
+  assignPanoToRoom: (panoId: string, roomId: string) => {
+    set((state) => ({
+      panos: state.panos.map(pano => 
+        pano.id === panoId 
+          ? { ...pano, roomId, metadataJson: { ...pano.metadataJson, assignedAt: new Date() } }
+          : pano
+      ),
+      unsavedChanges: true
+    }));
+  },
+
+  unassignPano: (panoId: string) => {
+    set((state) => ({
+      panos: state.panos.map(pano => 
+        pano.id === panoId 
+          ? { ...pano, roomId: undefined, metadataJson: { ...pano.metadataJson, isMaster: false, assignedAt: undefined } }
+          : pano
+      ),
+      unsavedChanges: true
+    }));
+  },
+
+  setMasterPano: (roomId: string, panoId: string) => {
+    set((state) => ({
+      panos: state.panos.map(pano => 
+        pano.roomId === roomId
+          ? { ...pano, metadataJson: { ...pano.metadataJson, isMaster: pano.id === panoId } }
+          : pano
+      ),
+      unsavedChanges: true
+    }));
+  },
   
   updatePanoPosition: (panoId, x, y) => set((state) => ({
     panos: state.panos.map(pano => 

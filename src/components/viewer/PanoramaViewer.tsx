@@ -2,7 +2,7 @@ import { useRef, Suspense, useState, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { Loader2, Settings } from "lucide-react";
+import { Loader2, Settings, Plus } from "lucide-react";
 import { PanoramaHotspot } from "./PanoramaHotspot";
 import { HotspotCreationInterface } from "./HotspotCreationInterface";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,15 @@ interface PanoramaSphereProps {
 
 function PanoramaSphere({ imageUrl, isPlacementMode, onPlace }: PanoramaSphereProps) {
   const texture = useTexture(imageUrl);
-  texture.flipY = false; // prevent vertical inversion
+  
+  // CRITICAL: Fix equirectangular orientation
+  texture.flipY = false;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.repeat.x = -1; // Mirror horizontally for correct inside view
 
   return (
     <mesh
-      scale={[1, -1, 1]}
+      scale={[-1, 1, 1]} // CRITICAL: Negative X scale for inside-out viewing
       name="panorama-sphere"
       onClick={(e: any) => {
         if (!isPlacementMode || !onPlace) return;
@@ -32,7 +36,7 @@ function PanoramaSphere({ imageUrl, isPlacementMode, onPlace }: PanoramaSpherePr
       <sphereGeometry args={[50, 60, 40]} />
       <meshBasicMaterial 
         map={texture} 
-        side={THREE.BackSide}
+        side={THREE.BackSide} // CRITICAL: BackSide for inside viewing
         toneMapped={false}
       />
     </mesh>
@@ -197,6 +201,7 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
           <p className="text-sm font-medium">{nodeId}</p>
         </div>
         
+        {/* Hotspot Management */}
         <Button
           variant={showHotspotInterface ? "default" : "outline"}
           size="sm"
@@ -206,6 +211,22 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
           <Settings className="h-4 w-4 mr-1" />
           {showHotspotInterface ? "Hide" : "Manage"} Hotspots
         </Button>
+        
+        {/* Quick Add Hotspot */}
+        {!showHotspotInterface && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setShowHotspotInterface(true);
+              setIsPlacementMode(true);
+            }}
+            className="bg-background/80 backdrop-blur-sm gap-1"
+          >
+            <Plus className="h-3 w-3" />
+            Add Hotspot
+          </Button>
+        )}
         
         {hotspots.length > 0 && (
           <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
@@ -218,7 +239,7 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
           <div className="bg-primary/10 border-primary rounded-lg px-3 py-2 border">
             <p className="text-xs font-medium text-primary">Click on panorama to place hotspot</p>
             <p className="text-xs text-muted-foreground">
-              {selectedField?.label || 'No field selected'}
+              {selectedField?.label || 'Select a field first'}
             </p>
           </div>
         )}
