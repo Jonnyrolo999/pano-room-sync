@@ -1,8 +1,8 @@
 import { useRef, Suspense, useState, useCallback } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { Loader2, Plus, Settings } from "lucide-react";
+import { Loader2, Settings } from "lucide-react";
 import { PanoramaHotspot } from "./PanoramaHotspot";
 import { HotspotCreationInterface } from "./HotspotCreationInterface";
 import { Button } from "@/components/ui/button";
@@ -10,19 +10,25 @@ import { toast } from "sonner";
 
 interface PanoramaSphereProps {
   imageUrl: string;
+  isPlacementMode?: boolean;
+  onPlace?: (point: THREE.Vector3) => void;
 }
 
-function PanoramaSphere({ imageUrl }: PanoramaSphereProps) {
+function PanoramaSphere({ imageUrl, isPlacementMode, onPlace }: PanoramaSphereProps) {
   const texture = useTexture(imageUrl);
-  
-  // Configure texture for equirectangular mapping
-  texture.mapping = THREE.EquirectangularReflectionMapping;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.flipY = false; // Fix for upside-down panorama
+  texture.flipY = false; // prevent vertical inversion
 
   return (
-    <mesh scale={[1, 1, 1]} name="panorama-sphere">
+    <mesh
+      scale={[1, -1, 1]}
+      name="panorama-sphere"
+      onClick={(e: any) => {
+        if (!isPlacementMode || !onPlace) return;
+        e.stopPropagation();
+        const point = e.point.clone().setLength(49);
+        onPlace(point);
+      }}
+    >
       <sphereGeometry args={[50, 60, 40]} />
       <meshBasicMaterial 
         map={texture} 
@@ -51,54 +57,6 @@ interface PanoramaViewerProps {
   highlightedField?: string | null;
 }
 
-// Component to handle click events in the 3D scene
-function ClickHandler({ 
-  isPlacementMode, 
-  selectedField, 
-  selectedIcon, 
-  onPlaceHotspot 
-}: { 
-  isPlacementMode: boolean;
-  selectedField: { code: string; label: string } | null;
-  selectedIcon: string;
-  onPlaceHotspot: (position: { x: number; y: number; z: number }) => void;
-}) {
-  const { camera, raycaster, scene } = useThree();
-
-  const handleClick = useCallback((event: any) => {
-    if (!isPlacementMode || !selectedField) return;
-
-    // Convert mouse position to world coordinates
-    const mouse = new THREE.Vector2();
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-    
-    // Find intersection with the panorama sphere
-    const sphere = scene.getObjectByName('panorama-sphere');
-    if (sphere) {
-      const intersects = raycaster.intersectObject(sphere);
-      if (intersects.length > 0) {
-        const point = intersects[0].point;
-        // Scale the position to be on the sphere surface
-        const normalizedPoint = point.normalize().multiplyScalar(25);
-        onPlaceHotspot({
-          x: normalizedPoint.x,
-          y: normalizedPoint.y,
-          z: normalizedPoint.z
-        });
-      }
-    }
-  }, [isPlacementMode, selectedField, onPlaceHotspot, camera, raycaster, scene]);
-
-  return (
-    <mesh onClick={handleClick} visible={false}>
-      <sphereGeometry args={[100, 32, 32]} />
-      <meshBasicMaterial transparent opacity={0} />
-    </mesh>
-  );
-}
 
 export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotClick, highlightedField }: PanoramaViewerProps) => {
   const controlsRef = useRef<any>();
@@ -169,7 +127,7 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
         }}
       >
         <Suspense fallback={null}>
-          <PanoramaSphere imageUrl={imageUrl} />
+          <PanoramaSphere imageUrl={imageUrl} isPlacementMode={isPlacementMode} onPlace={(point) => handlePlaceHotspot({ x: point.x, y: point.y, z: point.z })} />
           
           {/* Hotspots */}
           {hotspots.map(hotspot => {
@@ -201,13 +159,6 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
             );
           })}
 
-          {/* Click handler for hotspot placement */}
-          <ClickHandler
-            isPlacementMode={isPlacementMode}
-            selectedField={selectedField}
-            selectedIcon={selectedIcon}
-            onPlaceHotspot={handlePlaceHotspot}
-          />
         </Suspense>
         
         <OrbitControls
@@ -221,6 +172,7 @@ export const PanoramaViewer = ({ imageUrl, nodeId, roomData, headers, onHotspotC
           maxDistance={0.1}
           minPolarAngle={0}
           maxPolarAngle={Math.PI}
+          enabled={!isPlacementMode}
         />
       </Canvas>
       
