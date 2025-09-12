@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Upload, Target } from "lucide-react";
 import {
   Dialog,
@@ -29,6 +29,8 @@ export const AddFloorDialog = ({ open, onOpenChange }: AddFloorDialogProps) => {
     planImageUrl: '',
   });
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleNext = () => {
     if (step === 1 && formData.name.trim()) {
       setStep(2);
@@ -58,16 +60,20 @@ export const AddFloorDialog = ({ open, onOpenChange }: AddFloorDialogProps) => {
 
     addFloor(newFloor);
     setActiveFloor(newFloor.id);
-    
-    // Reset form
-    setFormData({
-      name: '',
-      orderIndex: floors.length + 2,
-      planFile: null,
-      planImageUrl: '',
-    });
-    setStep(1);
+
+    // Close dialog first to avoid overlay re-render capturing the click
     onOpenChange(false);
+
+    // Reset form after close to prevent click bubbling from triggering file input
+    setTimeout(() => {
+      setStep(1);
+      setFormData({
+        name: '',
+        orderIndex: floors.length + 2,
+        planFile: null,
+        planImageUrl: '',
+      });
+    }, 0);
   };
 
   const handleCancel = () => {
@@ -133,7 +139,7 @@ export const AddFloorDialog = ({ open, onOpenChange }: AddFloorDialogProps) => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Floor Plan Upload</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center relative">
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center relative" onClick={() => { if (!formData.planFile) fileInputRef.current?.click(); }}>
                 {formData.planFile ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">{formData.planFile.name}</div>
@@ -158,12 +164,15 @@ export const AddFloorDialog = ({ open, onOpenChange }: AddFloorDialogProps) => {
                   </div>
                 )}
                 
-                <input
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  onChange={handleFileUpload}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
+                {!formData.planFile && (
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    aria-label="Upload floor plan"
+                  />
+                )}
               </div>
             </div>
 
