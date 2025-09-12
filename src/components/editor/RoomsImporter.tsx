@@ -140,10 +140,6 @@ export const RoomsImporter = () => {
         };
       }
 
-      if (preview.errors.length === 0 && !polygon && preview.action === 'create') {
-        preview.action = 'skip';
-        preview.errors.push('No polygon coordinates provided');
-      }
 
       return preview;
     });

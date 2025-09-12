@@ -55,6 +55,7 @@ export const FullRoomsTable = () => {
   const [dryRun, setDryRun] = useState(true);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importRows, setImportRows] = useState<any[]>([]);
   
   const activeFloor = getActiveFloor();
 
@@ -70,12 +71,29 @@ export const FullRoomsTable = () => {
 
   // Get schema columns from floor or use defaults
   const columns = useMemo(() => {
-    if (activeFloor?.calibrationJson) {
-      // Extract schema from floor if available
-      return defaultColumns;
-    }
-    return defaultColumns;
-  }, [activeFloor]);
+    // Merge default columns with dynamic columns discovered from propertiesJson
+    const existingKeys = new Set(defaultColumns.map((c) => c.key));
+
+    const dynamicKeys = Array.from(
+      new Set(
+        rooms.flatMap((r) => Object.keys(r.propertiesJson || {}))
+      )
+    ).filter((k) => !existingKeys.has(k));
+
+    const toTitle = (s: string) =>
+      s
+        .replace(/[_\-]+/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const dynamicColumns: ColumnDefinition[] = dynamicKeys.map((key) => ({
+      key,
+      label: toTitle(key),
+      type: 'text',
+      width: 160,
+    }));
+
+    return [...defaultColumns, ...dynamicColumns];
+  }, [rooms]);
 
   // Filter and sort rooms
   const filteredAndSortedRooms = useMemo(() => {
@@ -269,7 +287,9 @@ export const FullRoomsTable = () => {
             toast.error("Error parsing CSV file");
             return;
           }
-          setupColumnMapping(results.meta.fields || [], results.data);
+          const rows = (results.data as any[]) || [];
+          setImportRows(rows);
+          setupColumnMapping(results.meta.fields || [], rows);
         }
       });
     } else {
@@ -278,27 +298,27 @@ export const FullRoomsTable = () => {
   };
 
   const setupColumnMapping = (fileHeaders: string[], fileData: any[]) => {
-    // Auto-map common columns
+    // Auto-map: default recognized columns; otherwise map to same header as custom property
     const mapping: Record<string, string> = {};
-    
-    fileHeaders.forEach(header => {
-      const lowerHeader = header.toLowerCase();
-      if (lowerHeader.includes('name') || lowerHeader.includes('room')) {
+
+    fileHeaders.forEach((header) => {
+      const lower = (header || '').toString().toLowerCase();
+      if (lower.includes('name') || lower.includes('room')) {
         mapping[header] = 'name';
-      } else if (lowerHeader.includes('id')) {
+      } else if (lower === 'id' || lower.includes('room_id')) {
         mapping[header] = 'id';
-      } else if (lowerHeader.includes('note')) {
+      } else if (lower.includes('note')) {
         mapping[header] = 'notes';
-      } else if (lowerHeader.includes('tag')) {
+      } else if (lower.includes('tag')) {
         mapping[header] = 'tags';
+      } else {
+        mapping[header] = header; // import as custom property key
       }
     });
 
     setColumnMapping(mapping);
-    setImportStep('mapping');
-    
-    // Generate preview with mapped data
     generateImportPreview(fileData, mapping);
+    setImportStep('preview'); // skip manual mapping by default
   };
 
   const generateImportPreview = (fileData: any[], mapping: Record<string, string>) => {
@@ -758,7 +778,7 @@ export const FullRoomsTable = () => {
                 <Button variant="outline" onClick={() => setImportStep('upload')}>
                   Back
                 </Button>
-                <Button onClick={() => generateImportPreview([], columnMapping)}>
+                <Button onClick={() => generateImportPreview(importRows, columnMapping)}>
                   Preview
                 </Button>
               </div>
