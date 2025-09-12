@@ -153,9 +153,8 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
     try {
       const pdfjsLib = await import('pdfjs-dist');
       
-      // Use bundled worker to match API version
-      const workerUrl = await import('pdfjs-dist/build/pdf.worker.min.js?url');
-      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = workerUrl.default;
+      // Use CDN worker with exact version match to avoid build issues
+      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.mjs`;
 
       const pdf = await pdfjsLib.getDocument({
         data: arrayBuffer,
