@@ -11,6 +11,7 @@ export interface PanoramaItem {
   title: string;
   floor?: string;
   fileName?: string;
+  imageUrl?: string;
 }
 
 interface PanoramasManagerProps {
@@ -48,7 +49,8 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
         nodeId: String(p.nodeId), 
         title: String(p.title), 
         floor: p.floor ? String(p.floor) : undefined,
-        fileName: p.fileName
+        fileName: p.fileName,
+        imageUrl: p.imageUrl
       });
     });
     onChange(Array.from(map.values()));
@@ -65,11 +67,13 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
         if (file.type.startsWith('image/')) {
           const nodeId = generateNodeIdFromFileName(file.name);
           const title = generateTitleFromFileName(file.name);
+          const imageUrl = URL.createObjectURL(file);
           
           items.push({
             nodeId,
             title,
-            fileName: file.name
+            fileName: file.name,
+            imageUrl
           });
         }
       }
@@ -167,6 +171,7 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b">
+                    <th className="text-left p-2 font-medium">Preview</th>
                     <th className="text-left p-2 font-medium">Node ID</th>
                     <th className="text-left p-2 font-medium">Title</th>
                     <th className="text-left p-2 font-medium">File Name</th>
@@ -176,6 +181,19 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
                 <tbody>
                   {panoramas.map((p) => (
                     <tr key={p.nodeId} className="border-b hover:bg-muted/50">
+                      <td className="p-2">
+                        {p.imageUrl ? (
+                          <img 
+                            src={p.imageUrl} 
+                            alt={p.title}
+                            className="w-16 h-12 object-cover rounded border"
+                          />
+                        ) : (
+                          <div className="w-16 h-12 bg-muted rounded border flex items-center justify-center">
+                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </td>
                       <td className="p-2 font-mono text-sm">{p.nodeId}</td>
                       <td className="p-2">{p.title}</td>
                       <td className="p-2 text-sm text-muted-foreground">{p.fileName || '-'}</td>
