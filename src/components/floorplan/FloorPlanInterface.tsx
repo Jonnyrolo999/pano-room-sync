@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, Square, MapPin, Save, Trash2, ZoomIn, ZoomOut, RotateCcw, MousePointer2, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +60,7 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   const [buildingName, setBuildingName] = useState("");
   const [floorName, setFloorName] = useState("");
   const [scale, setScale] = useState<number | undefined>();
-  const [activeTool, setActiveTool] = useState<"select" | "draw">("select");
+  const [activeTool, setActiveTool] = useState<"select" | "draw" | "dropPano">("select");
   const [roomPolygons, setRoomPolygons] = useState<RoomPolygon[]>([]);
   const [panoMarkers, setPanoMarkers] = useState<PanoMarker[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
@@ -73,6 +73,39 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   const [showPolygonConfirm, setShowPolygonConfirm] = useState(false);
   const [pendingPolygon, setPendingPolygon] = useState<{ x: number; y: number }[]>([]);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem('floorplan-editor-state');
+    if (savedState) {
+      try {
+        const state = JSON.parse(savedState);
+        if (state.floorPlan) setFloorPlan(state.floorPlan);
+        if (state.roomPolygons) setRoomPolygons(state.roomPolygons);
+        if (state.panoMarkers) setPanoMarkers(state.panoMarkers);
+        if (state.buildingName) setBuildingName(state.buildingName);
+        if (state.floorName) setFloorName(state.floorName);
+        if (state.scale) setScale(state.scale);
+        if (state.unsavedChanges) setUnsavedChanges(state.unsavedChanges);
+      } catch (error) {
+        console.warn('Failed to load saved state:', error);
+      }
+    }
+  }, []);
+
+  // Save state to localStorage when it changes
+  useEffect(() => {
+    const state = {
+      floorPlan,
+      roomPolygons,
+      panoMarkers,
+      buildingName,
+      floorName,
+      scale,
+      unsavedChanges
+    };
+    localStorage.setItem('floorplan-editor-state', JSON.stringify(state));
+  }, [floorPlan, roomPolygons, panoMarkers, buildingName, floorName, scale, unsavedChanges]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -120,8 +153,9 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
     try {
       const pdfjsLib = await import('pdfjs-dist');
       
-      // Use CDN worker to avoid bundling issues
-      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+      // Use bundled worker to match API version
+      const workerUrl = await import('pdfjs-dist/build/pdf.worker.min.js?url');
+      (pdfjsLib as any).GlobalWorkerOptions.workerSrc = workerUrl.default;
 
       const pdf = await pdfjsLib.getDocument({
         data: arrayBuffer,
@@ -221,6 +255,8 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
     };
 
     setPanoMarkers(prev => [...prev, newMarker]);
+    setActiveTool("select"); // Exit drop mode after placing
+    setSelectedPanoId(""); // Clear selection
     toast.success(`Panorama marker placed${assignedRoomId ? ` in room ${assignedRoomId}` : ""}`);
   }, [selectedPanoId, panoramas, roomPolygons]);
 
@@ -412,6 +448,15 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
             >
               ⬟ Draw Room
             </Button>
+            <Button
+              variant={activeTool === "dropPano" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTool("dropPano")}
+              title="Drop panorama markers"
+            >
+              <MapPin className="h-4 w-4 mr-1" />
+              Drop Pano
+            </Button>
             
             <div className="h-6 w-px bg-border mx-2" />
             
@@ -449,7 +494,7 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
         </div>
 
         {/* Canvas Area */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-h-0">
           <FloorPlanCanvas
             floorPlan={floorPlan}
             activeTool={activeTool}
@@ -467,21 +512,21 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
       </div>
 
       {/* Right Panel */}
-      <div className="w-96 border-l bg-background flex flex-col">
+      <div className="w-96 border-l bg-background flex flex-col min-h-0">
         {showPanoViewer ? (
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="font-semibold">Panorama Viewer</h3>
               <Button variant="ghost" size="sm" onClick={() => setShowPanoViewer(false)}>
                 ✕
               </Button>
             </div>
-            <div className="flex-1 bg-muted flex items-center justify-center">
+            <div className="flex-1 bg-muted flex items-center justify-center min-h-0">
               <p className="text-muted-foreground">Panorama viewer for {currentPanoId}</p>
             </div>
           </div>
         ) : (
-          <div className="p-4 space-y-4 overflow-y-auto">
+          <div className="p-4 space-y-4 overflow-y-auto min-h-0">
             {activeTool === "draw" && (
               <div>
                 <Label htmlFor="room-select">Room to Assign</Label>
@@ -504,7 +549,9 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
             )}
 
             <div>
-              <h4 className="font-medium mb-2">Available Panoramas</h4>
+              <h4 className="font-medium mb-2">
+                {activeTool === "dropPano" ? "Select Panorama to Place" : "Available Panoramas"}
+              </h4>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {panoramas.map(pano => (
                   <div key={pano.nodeId} className="flex items-center justify-between p-2 border rounded">
@@ -515,16 +562,21 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
                     <Button
                       size="sm"
                       variant={selectedPanoId === pano.nodeId ? "default" : "outline"}
-                      onClick={() => setSelectedPanoId(pano.nodeId)}
+                      onClick={() => {
+                        setSelectedPanoId(pano.nodeId);
+                        if (activeTool !== "dropPano") {
+                          setActiveTool("dropPano");
+                        }
+                      }}
                     >
                       {selectedPanoId === pano.nodeId ? "Selected" : "Select"}
                     </Button>
                   </div>
                 ))}
               </div>
-              {selectedPanoId && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Click on floor plan to place {panoramas.find(p => p.nodeId === selectedPanoId)?.title}
+              {selectedPanoId && activeTool === "dropPano" && (
+                <p className="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded">
+                  📍 Click on floor plan to place {panoramas.find(p => p.nodeId === selectedPanoId)?.title}
                 </p>
               )}
             </div>

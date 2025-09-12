@@ -29,7 +29,7 @@ interface PanoMarker {
 
 interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
-  activeTool: "select" | "draw";
+  activeTool: "select" | "draw" | "dropPano";
   roomPolygons: RoomPolygon[];
   panoMarkers: PanoMarker[];
   onAddPolygon: (points: { x: number; y: number }[]) => void;
@@ -341,6 +341,13 @@ export const FloorPlanCanvas = ({
     const rawPos = screenToCanvas(event.clientX, event.clientY);
     const { x, y } = snapPoint(rawPos);
 
+    if (activeTool === "dropPano") {
+      // In drop pano mode, only place pano markers, ignore polygon interactions
+      event.stopPropagation();
+      onAddPanoMarker(x, y);
+      return;
+    }
+
     if (activeTool === "select") {
       // Check for vertex dragging first
       if (isEditingPolygon) {
@@ -357,6 +364,15 @@ export const FloorPlanCanvas = ({
         }
       }
       
+      // Check if clicking on a panorama marker (higher priority than polygons)
+      for (const marker of panoMarkers) {
+        const distance = Math.sqrt((rawPos.x - marker.x) ** 2 + (rawPos.y - marker.y) ** 2);
+        if (distance <= 12) {
+          onPanoClick(marker.panoId);
+          return;
+        }
+      }
+      
       // Check if clicking on a room polygon
       for (const polygon of roomPolygons) {
         if (isPointInPolygon(rawPos, polygon.points)) {
@@ -366,15 +382,6 @@ export const FloorPlanCanvas = ({
             setIsEditingPolygon(polygon.id); // Enter edit mode
             onRoomClick(polygon.roomId);
           }
-          return;
-        }
-      }
-      
-      // Check if clicking on a panorama marker
-      for (const marker of panoMarkers) {
-        const distance = Math.sqrt((rawPos.x - marker.x) ** 2 + (rawPos.y - marker.y) ** 2);
-        if (distance <= 12) {
-          onPanoClick(marker.panoId);
           return;
         }
       }
@@ -625,20 +632,28 @@ export const FloorPlanCanvas = ({
         </div>
       )}
 
-      {/* Canvas */}
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full cursor-crosshair"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onDoubleClick={handleDoubleClick}
-        style={{
-          cursor: activeTool === "select" ? 
-            (isPanning ? "grabbing" : dragVertex ? "grabbing" : isEditingPolygon ? "pointer" : "grab") : 
-            "crosshair"
-        }}
-      />
+       {/* Canvas */}
+       <canvas
+         ref={canvasRef}
+         className="w-full h-full"
+         onMouseDown={handleMouseDown}
+         onMouseMove={handleMouseMove}
+         onMouseUp={handleMouseUp}
+         onDoubleClick={handleDoubleClick}
+         style={{
+           cursor: activeTool === "select" ? 
+             (isPanning ? "grabbing" : dragVertex ? "grabbing" : isEditingPolygon ? "pointer" : "grab") : 
+             activeTool === "dropPano" ? "crosshair" :
+             "crosshair"
+         }}
+       />
+
+       {/* Status for drop pano mode */}
+       {activeTool === "dropPano" && (
+         <div className="absolute bottom-4 left-4 bg-green-100 text-green-800 px-3 py-2 rounded-lg shadow-lg border border-green-300">
+           📍 Click to place panorama
+         </div>
+       )}
     </div>
   );
 };
