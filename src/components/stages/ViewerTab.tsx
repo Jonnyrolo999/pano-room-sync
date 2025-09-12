@@ -47,8 +47,8 @@ export const ViewerTab = () => {
   const panoMarkers = panos.map(pano => ({
     id: pano.id,
     panoId: pano.id,
-    x: Math.random() * 800 + 100,
-    y: Math.random() * 600 + 100,
+    x: Number((pano as any).metadataJson?.canvasX ?? 0),
+    y: Number((pano as any).metadataJson?.canvasY ?? 0),
     roomId: pano.roomId,
     panoData: pano
   }));
@@ -216,13 +216,11 @@ export const ViewerTab = () => {
               </div>
               
               {/* TODO: Integrate Pannellum or Marzipano here */}
-              {selectedPano.imageUrl && (
-                <img 
-                  src={selectedPano.imageUrl} 
-                  alt={selectedPano.title}
-                  className="w-full h-full object-cover opacity-30"
-                />
-              )}
+                  <img 
+                    src={selectedPano.imageUrl || '/placeholder.svg'} 
+                    alt={selectedPano.title}
+                    className="w-full h-full object-cover opacity-30"
+                  />
             </div>
           </div>
         )}

@@ -35,7 +35,9 @@ export const RoomsTab = () => {
     setLockedSelection,
     unsavedChanges,
     visibilityFilter,
-    setVisibilityFilter
+    setVisibilityFilter,
+    addRoom,
+    updateRoom
   } = useFloorplanStore();
   
   const activeFloor = getActiveFloor();
@@ -63,20 +65,36 @@ export const RoomsTab = () => {
   const panoMarkers = panos.map(pano => ({
     id: pano.id,
     panoId: pano.id,
-    x: Math.random() * 800 + 100,
-    y: Math.random() * 600 + 100,
+    x: Number((pano as any).metadataJson?.canvasX ?? 0),
+    y: Number((pano as any).metadataJson?.canvasY ?? 0),
     roomId: pano.roomId,
     panoData: pano
   }));
 
   const handleAddPolygon = (points: { x: number; y: number }[]) => {
-    // TODO: Add room polygon
-    console.log("Add polygon:", points);
+    const poly = points.map(p => [p.x, p.y] as [number, number]);
+    if (selectedRoomId) {
+      updateRoom(selectedRoomId, { polygon: poly, updatedAt: new Date() });
+    } else {
+      const newId = `room_${Date.now()}`;
+      addRoom({
+        id: newId,
+        floorId: activeFloor?.id || '',
+        name: `Room ${rooms.length + 1}`,
+        polygon: poly,
+        propertiesJson: {},
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      setSelectedRoom(newId);
+    }
   };
 
   const handleUpdatePolygon = (polygonId: string, points: { x: number; y: number }[]) => {
-    // TODO: Update room polygon
-    console.log("Update polygon:", polygonId, points);
+    updateRoom(polygonId, {
+      polygon: points.map(p => [p.x, p.y] as [number, number]),
+      updatedAt: new Date()
+    });
   };
 
   const handleRoomClick = (roomId: string) => {

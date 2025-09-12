@@ -559,9 +559,20 @@ export const FloorPlanCanvas = ({
       setIsPanning(true);
       setPanStart({ x: event.clientX - pan.x, y: event.clientY - pan.y });
     } else if (activeTool === "draw") {
+      // If clicking near the first vertex and we have >=3 points, close the polygon
+      if (currentPolygon.length >= 3) {
+        const first = currentPolygon[0];
+        const dist = Math.hypot(rawPos.x - first.x, rawPos.y - first.y);
+        const tolerance = 8 / zoom;
+        if (dist <= tolerance) {
+          onAddPolygon([...currentPolygon]);
+          setCurrentPolygon([]);
+          return;
+        }
+      }
       setCurrentPolygon(prev => [...prev, { x, y }]);
     }
-  }, [activeTool, screenToCanvas, snapPoint, pan, roomPolygons, panoMarkers, isEditingPolygon, onRoomClick, onPanoClick, onAddPanoMarker, interactionFilter, selectedPanoId]);
+  }, [activeTool, screenToCanvas, snapPoint, pan, roomPolygons, panoMarkers, isEditingPolygon, onRoomClick, onPanoClick, onAddPanoMarker, interactionFilter, selectedPanoId, currentPolygon, zoom]);
   
   // Point in polygon test
   const isPointInPolygon = (point: { x: number; y: number }, polygon: { x: number; y: number }[]) => {

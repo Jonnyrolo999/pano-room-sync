@@ -24,6 +24,7 @@ import { useFloorplanStore } from "@/stores/floorplanStore";
 import { useBuildingStore } from "@/stores/buildingStore";
 import { Room } from "@/types/building";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 
 interface ImportPreview {
   action: 'create' | 'update' | 'skip';
@@ -152,36 +153,48 @@ export const RoomsImporter = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      toast.error('Please select a CSV file');
-      return;
-    }
+    const name = file.name.toLowerCase();
 
     setIsImporting(true);
     
     try {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          if (results.errors.length > 0) {
-            toast.error(`CSV parsing errors: ${results.errors.map(e => e.message).join(', ')}`);
-            setIsImporting(false);
-            return;
-          }
+      if (name.endsWith('.csv')) {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            if (results.errors.length > 0) {
+              toast.error(`CSV parsing errors: ${results.errors.map(e => e.message).join(', ')}`);
+              setIsImporting(false);
+              return;
+            }
 
-          const preview = processCSVData(results.data);
-          setImportPreview(preview);
-          setShowPreview(true);
-          setIsImporting(false);
-        },
-        error: (error) => {
-          toast.error(`Failed to parse CSV: ${error.message}`);
-          setIsImporting(false);
-        }
-      });
+            const preview = processCSVData(results.data as any[]);
+            setImportPreview(preview);
+            setShowPreview(true);
+            setIsImporting(false);
+          },
+          error: (error) => {
+            toast.error(`Failed to parse CSV: ${error.message}`);
+            setIsImporting(false);
+          }
+        });
+      } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        const preview = processCSVData(json as any[]);
+        setImportPreview(preview);
+        setShowPreview(true);
+        setIsImporting(false);
+      } else {
+        toast.error('Unsupported file format. Please upload CSV or Excel files.');
+        setIsImporting(false);
+      }
     } catch (error) {
-      toast.error('Failed to read CSV file');
+      toast.error('Failed to read file');
       setIsImporting(false);
     }
 
@@ -288,7 +301,7 @@ export const RoomsImporter = () => {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".csv,.xlsx,.xls"
             onChange={handleFileUpload}
             className="hidden"
           />

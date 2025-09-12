@@ -32,7 +32,8 @@ export const PanosTab = () => {
     setSelectedPano,
     assignPanoToRoom,
     unassignPano,
-    getUnassignedPanos
+    getUnassignedPanos,
+    updatePanoPosition
   } = useFloorplanStore();
   
   const activeFloor = getActiveFloor();
@@ -64,8 +65,8 @@ export const PanosTab = () => {
   const panoMarkers = panos.map(pano => ({
     id: pano.id,
     panoId: pano.id,
-    x: Math.random() * 800 + 100, // TODO: Use actual coordinates from pano metadata
-    y: Math.random() * 600 + 100,
+    x: Number((pano as any).metadataJson?.canvasX ?? 0),
+    y: Number((pano as any).metadataJson?.canvasY ?? 0),
     roomId: pano.roomId,
     panoData: pano
   }));
@@ -118,9 +119,33 @@ export const PanosTab = () => {
 
   const handleAddPanoMarker = (x: number, y: number) => {
     if (mode === 'dropPano') {
-      // TODO: Place selected pano at coordinates
-      console.log("Drop pano at:", x, y);
-      toast.success("Panorama placed on floor plan");
+      if (!selectedPanoId) {
+        toast.error('Select a panorama from the list first');
+        return;
+      }
+      // Persist position to store
+      updatePanoPosition(selectedPanoId, x, y);
+
+      // Auto-assign to room if dropped inside a polygon
+      const isPointInPolygon = (point: { x: number; y: number }, polygon: { x: number; y: number }[]) => {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          if (((polygon[i].y > point.y) !== (polygon[j].y > point.y)) &&
+              (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+            inside = !inside;
+          }
+        }
+        return inside;
+      };
+
+      const dropPoint = { x, y };
+      const hit = rooms.find(r => r.polygon && r.polygon.length >= 3 && isPointInPolygon(dropPoint, r.polygon.map(([px, py]) => ({ x: px, y: py }))));
+      if (hit) {
+        assignPanoToRoom(selectedPanoId, hit.id);
+      }
+
+      setMode('select');
+      toast.success('Panorama placed');
     }
   };
 

@@ -34,9 +34,9 @@ interface FloorplanState {
   updateRoom: (roomId: string, updates: Partial<Room>) => void;
   deleteRoom: (roomId: string) => void;
   
-  // Pano operations
   assignPanoToRoom: (panoId: string, roomId: string) => void;
   unassignPano: (panoId: string) => void;
+  updatePanoPosition: (panoId: string, x: number, y: number) => void;
   
   // Computed
   getUnassignedPanos: () => Pano[];
@@ -141,6 +141,21 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
     unsavedChanges: true
   })),
   
+  updatePanoPosition: (panoId, x, y) => set((state) => ({
+    panos: state.panos.map(pano => 
+      pano.id === panoId 
+        ? { 
+            ...pano, 
+            metadataJson: { 
+              ...pano.metadataJson, 
+              canvasX: x, 
+              canvasY: y 
+            } 
+          } 
+        : pano
+    ),
+    unsavedChanges: true
+  })),
   getUnassignedPanos: () => {
     const { panos } = get();
     return panos.filter(pano => !pano.roomId);

@@ -4,14 +4,19 @@ import { FloorPlanCanvas } from "@/components/floorplan/FloorPlanCanvas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { FileImage, Upload, Settings, Info } from "lucide-react";
 import { useBuildingStore } from "@/stores/buildingStore";
 import { useFloorplanStore } from "@/stores/floorplanStore";
+import { toast } from "sonner";
+import { toast } from "sonner";
 
 export const PlanTab = () => {
-  const { getActiveFloor } = useBuildingStore();
+  const { getActiveFloor, updateFloor } = useBuildingStore();
   const { rooms, panos } = useFloorplanStore();
   const [showUploader, setShowUploader] = useState(false);
+  const [showCalibrate, setShowCalibrate] = useState(false);
+  const [pixelsPerMeter, setPixelsPerMeter] = useState<number>(1);
   const activeFloor = getActiveFloor();
 
   const hasFloorPlan = activeFloor?.planImageUrl;
@@ -34,12 +39,11 @@ export const PlanTab = () => {
     roomData: room
   }));
 
-  // Convert panos to markers for display
   const panoMarkers = panos.map(pano => ({
     id: pano.id,
     panoId: pano.id,
-    x: Math.random() * 800 + 100, // TODO: Use actual coordinates
-    y: Math.random() * 600 + 100,
+    x: Number((pano as any).metadataJson?.canvasX ?? 0),
+    y: Number((pano as any).metadataJson?.canvasY ?? 0),
     roomId: pano.roomId,
     panoData: pano
   }));
@@ -138,7 +142,7 @@ export const PlanTab = () => {
                     <Upload className="h-3 w-3" />
                     Replace Plan
                   </Button>
-                  <Button variant="outline" size="sm" className="gap-1">
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => { setPixelsPerMeter(activeFloor?.calibrationJson?.pixelsPerMeter || 1); setShowCalibrate(true); }}>
                     <Settings className="h-3 w-3" />
                     Calibrate
                   </Button>
@@ -182,7 +186,7 @@ export const PlanTab = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start gap-2">
+                <Button variant="outline" className="w-full justify-start gap-2" onClick={() => { setPixelsPerMeter(activeFloor?.calibrationJson?.pixelsPerMeter || 1); setShowCalibrate(true); }}>
                   <Settings className="h-4 w-4" />
                   Calibrate Scale
                 </Button>
@@ -224,6 +228,33 @@ export const PlanTab = () => {
             >
               Close
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Calibrate Modal */}
+      {showCalibrate && activeFloor && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-2">Calibrate Scale</h3>
+            <p className="text-sm text-muted-foreground mb-4">Set pixels per meter for accurate measurements.</p>
+            <div className="space-y-2">
+              <label className="text-sm">Pixels per meter</label>
+              <Input type="number" step="0.01" value={pixelsPerMeter} onChange={(e) => setPixelsPerMeter(parseFloat(e.target.value) || 1)} />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button 
+                className="flex-1" 
+                onClick={() => {
+                  updateFloor(activeFloor.id, { calibrationJson: { ...(activeFloor.calibrationJson || { rotation: 0, originX: 0, originY: 0 }), pixelsPerMeter } });
+                  toast.success('Calibration saved');
+                  setShowCalibrate(false);
+                }}
+              >
+                Save
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setShowCalibrate(false)}>Cancel</Button>
+            </div>
           </div>
         </div>
       )}
