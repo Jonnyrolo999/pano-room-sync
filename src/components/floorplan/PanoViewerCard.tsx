@@ -96,7 +96,7 @@ export const PanoViewerCard = ({ selectedPanoId, panoramas, onPanoSelect }: Pano
               imageUrl={selectedPano.imageUrl}
               nodeId={selectedPano.nodeId}
               roomData={null}
-              headers={{}}
+              headers={{ row1: [], row2: [] }}
               onHotspotClick={() => {}}
               highlightedField=""
             />

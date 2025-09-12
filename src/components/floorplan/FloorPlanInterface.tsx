@@ -505,28 +505,118 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
                 Both
               </Button>
             </div>
+
+            <div className="h-6 w-px bg-border mx-2" />
+            
+            {/* Grid Toggle */}
+            <Button
+              variant={snapToGrid ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSnapToGrid(!snapToGrid)}
+              title="Snap to grid"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+
+            {/* Lock Selection */}
+            <Button
+              variant={lockedSelection ? "default" : "outline"}
+              size="sm"
+              onClick={() => setLockedSelection(!lockedSelection)}
+              title="Lock selection to prevent changes"
+            >
+              <Lock className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Selection Chips */}
+            {selectedRoomId && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Square className="h-3 w-3" />
+                Room: {selectedRoomId}
+                {!lockedSelection && (
+                  <X 
+                    className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                    onClick={() => setSelectedRoomId("")}
+                  />
+                )}
+              </Badge>
+            )}
+            {selectedPanoId && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                ● Pano: {selectedPanoId.slice(-6)}
+                {!lockedSelection && (
+                  <X 
+                    className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                    onClick={() => setSelectedPanoId("")}
+                  />
+                )}
+              </Badge>
+            )}
+            
+            <Button onClick={autoAssignPanoramas} size="sm" variant="outline">
+              Auto-Assign
+            </Button>
+            
+            <Button onClick={() => setUnsavedChanges(!unsavedChanges)} size="sm">
+              <Save className="h-4 w-4 mr-2" />
+              {unsavedChanges ? "Save*" : "Saved"}
+            </Button>
           </div>
         </div>
 
         {/* Canvas */}
-        <FloorPlanCanvas
-          floorPlan={floorPlan}
-          activeTool={activeTool}
-          roomPolygons={roomPolygons}
-          panoMarkers={panoMarkers}
-          onAddPolygon={handleAddPolygon}
-          onAddPanoMarker={handleAddPanoMarker}
-          onRoomClick={handleRoomClick}
-          onPanoClick={handlePanoClick}
-          onUpdatePolygon={handleUpdatePolygon}
-          snapToGrid={snapToGrid}
-          gridSize={gridSize}
-          interactionFilter={interactionFilter}
-          selectedRoomId={selectedRoomId}
-          selectedPanoId={selectedPanoId}
-          hoveredItemId={hoveredItemId}
-          onHoverItem={setHoveredItemId}
-        />
+        <div className="flex-1 relative min-h-0">
+          <FloorPlanCanvas
+            floorPlan={floorPlan}
+            activeTool={activeTool}
+            roomPolygons={roomPolygons}
+            panoMarkers={panoMarkers}
+            onAddPolygon={handleAddPolygon}
+            onAddPanoMarker={handleAddPanoMarker}
+            onRoomClick={handleRoomClick}
+            onPanoClick={handlePanoClick}
+            onUpdatePolygon={handleUpdatePolygon}
+            snapToGrid={snapToGrid}
+            gridSize={gridSize}
+            interactionFilter={interactionFilter}
+            selectedRoomId={selectedRoomId}
+            selectedPanoId={selectedPanoId}
+            hoveredItemId={hoveredItemId}
+            onHoverItem={setHoveredItemId}
+          />
+          
+          {/* Legend */}
+          <div className="absolute bottom-4 left-4 bg-background/90 backdrop-blur-sm border rounded-lg p-3 shadow-lg">
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-3 bg-blue-500 border border-blue-700 rounded-sm opacity-60"></div>
+                <span>Rooms</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="p-0 h-4 w-4"
+                  onClick={() => setInteractionFilter(interactionFilter === "rooms" ? "both" : "rooms")}
+                >
+                  {interactionFilter === "panos" ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-amber-500 border border-amber-800 rounded-full"></div>
+                <span>Panoramas</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="p-0 h-4 w-4"
+                  onClick={() => setInteractionFilter(interactionFilter === "panos" ? "both" : "panos")}
+                >
+                  {interactionFilter === "rooms" ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Right Panel - All-in-One Viewer */}
@@ -552,371 +642,38 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
           panoMarkers={panoMarkers}
         />
       </div>
-    </div>
-  );
-        {/* Toolbar */}
-        <div className="flex items-center justify-between p-4 border-b bg-background">
-          <div className="flex items-center gap-2">
-            <Button
-              variant={activeTool === "select" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("select")}
-              title="Select and edit polygons"
-            >
-              <MousePointer2 className="h-4 w-4 mr-1" />
-              Select
-            </Button>
-            <Button
-              variant={activeTool === "draw" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("draw")}
-              title="Draw room polygons"
-            >
-              ⬟ Draw Room
-            </Button>
-            <Button
-              variant={activeTool === "dropPano" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTool("dropPano")}
-              title="Drop panorama markers"
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              Drop Pano
-            </Button>
-            
-            <div className="h-6 w-px bg-border mx-2" />
-
-            {/* Interaction Filter */}
-            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-              <Button
-                variant={interactionFilter === "rooms" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setInteractionFilter("rooms")}
-                title="Rooms only"
-              >
-                <Square className="h-3 w-3" />
-              </Button>
-              <Button
-                variant={interactionFilter === "panos" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setInteractionFilter("panos")}
-                title="Panos only"
-              >
-                <MapPin className="h-3 w-3" />
-              </Button>
-              <Button
-                variant={interactionFilter === "both" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setInteractionFilter("both")}
-                title="Both"
-              >
-                Both
-              </Button>
-            </div>
-            
-            <div className="h-6 w-px bg-border mx-2" />
-            
-            <Button
-              size="sm"
-              variant={snapToGrid ? "default" : "outline"}
-              onClick={() => setSnapToGrid(!snapToGrid)}
-              title="Toggle grid snapping"
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            {snapToGrid && (
-              <Select value={gridSize.toString()} onValueChange={(v) => setGridSize(parseInt(v))}>
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10px</SelectItem>
-                  <SelectItem value="25">25px</SelectItem>
-                  <SelectItem value="50">50px</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Selection Chips */}
-            {(selectedRoomId || selectedPanoId) && (
-              <div className="flex items-center gap-1">
-                {selectedRoomId && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <Square className="h-3 w-3" />
-                    Room: {selectedRoomId}
-                    {!lockedSelection && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => setSelectedRoomId("")}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </Badge>
-                )}
-                {selectedPanoId && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    Pano: {selectedPanoId}
-                    {!lockedSelection && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => setSelectedPanoId("")}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </Badge>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setLockedSelection(!lockedSelection)}
-                  title={lockedSelection ? "Unlock selection" : "Lock selection"}
-                  className={lockedSelection ? "bg-primary/10 text-primary" : ""}
-                >
-                  <Lock className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
-            
-            <Badge variant={unsavedChanges ? "destructive" : "secondary"}>
-              {unsavedChanges ? "Unsaved" : "Saved"}
-            </Badge>
-            <Button onClick={() => setUnsavedChanges(false)} disabled={!unsavedChanges}>
-              <Save className="h-4 w-4 mr-1" />
-              Save
-            </Button>
-          </div>
-        </div>
-
-        {/* Canvas Area */}
-        <div className="flex-1 relative min-h-0">
-          <FloorPlanCanvas
-            floorPlan={floorPlan}
-            activeTool={activeTool}
-            roomPolygons={roomPolygons}
-            panoMarkers={panoMarkers}
-            onAddPolygon={handleAddPolygon}
-            onAddPanoMarker={handleAddPanoMarker}
-            onRoomClick={handleRoomClick}
-            onPanoClick={handlePanoClick}
-            onUpdatePolygon={handleUpdatePolygon}
-            snapToGrid={snapToGrid}
-            gridSize={gridSize}
-            interactionFilter={interactionFilter}
-            selectedRoomId={selectedRoomId}
-            selectedPanoId={selectedPanoId}
-            hoveredItemId={hoveredItemId}
-            onHoverItem={setHoveredItemId}
-          />
-          
-          {/* Legend */}
-          <div className="absolute bottom-4 left-4 bg-background/95 backdrop-blur-sm border rounded-lg p-3 shadow-lg">
-            <div className="text-sm font-medium mb-2">Legend</div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-4 h-4 border-2 border-primary bg-primary/15 rounded-sm"></div>
-                <span>Rooms</span>
-                <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
-                  <Eye className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-4 h-4 bg-secondary border-2 border-secondary-foreground rounded-full"></div>
-                <span>Panoramas</span>
-                <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
-                  <Eye className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Panel */}
-      <div className="w-96 border-l bg-background flex flex-col min-h-0">
-        {showPanoViewer ? (
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="font-semibold">Panorama Viewer</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowPanoViewer(false)}>
-                ✕
-              </Button>
-            </div>
-            <div className="flex-1 bg-muted flex items-center justify-center min-h-0">
-              <p className="text-muted-foreground">Panorama viewer for {currentPanoId}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 space-y-4 overflow-y-auto min-h-0">
-            {activeTool === "draw" && (
-              <div>
-                <Label htmlFor="room-select">Room to Assign</Label>
-                <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select room for polygon" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rooms.map(room => (
-                      <SelectItem key={room.id} value={room.id}>
-                        {room.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Click to place vertices, double-click to close
-                </p>
-              </div>
-            )}
-
-            <div>
-              <h4 className="font-medium mb-2">
-                {activeTool === "dropPano" ? "Select Panorama to Place" : "Available Panoramas"}
-              </h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {panoramas.map(pano => (
-                  <div key={pano.nodeId} className="flex items-center justify-between p-2 border rounded">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{pano.title || pano.nodeId}</span>
-                      <span className="text-xs text-muted-foreground">{pano.floor}</span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={selectedPanoId === pano.nodeId ? "default" : "outline"}
-                      onClick={() => {
-                        setSelectedPanoId(pano.nodeId);
-                        if (activeTool !== "dropPano") {
-                          setActiveTool("dropPano");
-                        }
-                      }}
-                    >
-                      {selectedPanoId === pano.nodeId ? "Selected" : "Select"}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              {selectedPanoId && activeTool === "dropPano" && (
-                <p className="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded">
-                  📍 Click on floor plan to place {panoramas.find(p => p.nodeId === selectedPanoId)?.title}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Button onClick={autoAssignPanoramas} className="w-full" variant="outline">
-                Auto-Assign Panoramas
-              </Button>
-            </div>
-
-        <div className="space-y-2">
-          <h4 className="font-medium">Room Polygons ({roomPolygons.length})</h4>
-          {roomPolygons.map(polygon => (
-            <div key={polygon.id} className="flex items-center justify-between p-2 border rounded">
-              <div className="flex items-center gap-2">
-                <div 
-                  className="w-3 h-3 rounded-full" 
-                  style={{ backgroundColor: polygon.color }}
-                />
-                <span className="text-sm">{polygon.roomId}</span>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleDeletePolygon(polygon.id)}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-2">
-          <h4 className="font-medium">Panorama Markers ({panoMarkers.length})</h4>
-          {panoMarkers.map(marker => (
-            <div key={marker.id} className="flex items-center justify-between p-2 border rounded">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">{marker.panoData?.title || marker.panoId}</span>
-                {marker.roomId && (
-                  <span className="text-xs text-muted-foreground">Room: {marker.roomId}</span>
-                )}
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleDeleteMarker(marker.id)}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-2">
-          <h4 className="font-medium">Legend</h4>
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-500" />
-              <span>Complete Data</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-amber-500" />
-              <span>Incomplete Data</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-red-500" />
-              <span>Missing Data</span>
-            </div>
-          </div>
-        </div>
-          </div>
-        )}
-      </div>
 
       {/* Polygon Confirmation Modal */}
       {showPolygonConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background p-6 rounded-lg border max-w-md">
-            <h3 className="font-semibold mb-4">Close Polygon</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Polygon closed with {pendingPolygon.length} vertices. 
-              {selectedRoomId ? ` Assign to room ${selectedRoomId}?` : " Please select a room to assign this polygon."}
-            </p>
-            
-            {!selectedRoomId && (
-              <div className="mb-4">
-                <Label>Select Room</Label>
-                <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose room" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rooms.map(room => (
-                      <SelectItem key={room.id} value={room.id}>
-                        {room.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <Card className="w-96">
+            <CardHeader>
+              <CardTitle>Confirm Room Polygon</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p>Assign this polygon to room:</p>
+              <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a room" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rooms.map(room => (
+                    <SelectItem key={room.id} value={room.id}>
+                      {room.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Button onClick={confirmPolygon} className="flex-1">
+                  Confirm
+                </Button>
+                <Button onClick={cancelPolygon} variant="outline" className="flex-1">
+                  Cancel
+                </Button>
               </div>
-            )}
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={cancelPolygon}>
-                Cancel
-              </Button>
-              <Button onClick={confirmPolygon} disabled={!selectedRoomId}>
-                Assign to Room
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
