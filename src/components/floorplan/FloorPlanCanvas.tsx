@@ -56,8 +56,6 @@ interface FloorPlanCanvasProps {
     pxLength: number;
   } | null;
 }
-  onHoverItem: (itemId: string) => void;
-}
 
 export const FloorPlanCanvas = ({
   floorPlan,
@@ -76,7 +74,6 @@ export const FloorPlanCanvas = ({
   selectedPanoId,
   hoveredItemId,
   onHoverItem
-}: FloorPlanCanvasProps) => {
 }: FloorPlanCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
