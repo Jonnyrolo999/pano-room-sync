@@ -1,18 +1,19 @@
-import { Upload, Database, Link2, Play, Image as ImageIcon } from "lucide-react";
+import { Upload, Database, Link2, Play, Image as ImageIcon, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
+  activeTab: "import" | "rooms" | "panoramas" | "assign" | "floorplan" | "viewer";
+  onTabChange: (tab: "import" | "rooms" | "panoramas" | "assign" | "floorplan" | "viewer") => void;
 }
 
 export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
   const tabs = [
-    { id: "import", label: "Import Room Data", icon: Upload },
-    { id: "rooms", label: "Rooms Table", icon: Database },
-    { id: "panoramas", label: "Panoramas", icon: ImageIcon },
-    { id: "assign", label: "Assign Panoramas", icon: Link2 },
-    { id: "viewer", label: "Viewer", icon: Play },
+    { id: "import" as const, label: "Import Room Data", icon: Upload },
+    { id: "rooms" as const, label: "Rooms Table", icon: Database },
+    { id: "panoramas" as const, label: "Panoramas", icon: ImageIcon },
+    { id: "assign" as const, label: "Assign Panoramas", icon: Link2 },
+    { id: "floorplan" as const, label: "Floor Plan", icon: Map },
+    { id: "viewer" as const, label: "Viewer", icon: Play },
   ];
 
   return (

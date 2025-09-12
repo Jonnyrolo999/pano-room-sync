@@ -6,6 +6,7 @@ import { EnhancedAssignmentInterface } from "@/components/assign/EnhancedAssignm
 import { ViewerPanel } from "@/components/viewer/ViewerPanel";
 import { PanoramaViewer } from "@/components/viewer/PanoramaViewer";
 import { PanoramasManager } from "@/components/panoramas/PanoramasManager";
+import { FloorPlanInterface } from "@/components/floorplan/FloorPlanInterface";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,7 +36,7 @@ interface Panorama {
 const MOCK_NODES = ["G-101", "G-102", "G-103", "F1-201", "F1-202", "F2-301"];
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("import");
+  const [activeTab, setActiveTab] = useState<"import" | "rooms" | "panoramas" | "assign" | "floorplan" | "viewer">("import");
   const [rooms, setRooms] = useState<Room[]>([]);
   const [headers, setHeaders] = useState<{ row1: string[]; row2: string[] }>({ row1: [], row2: [] });
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -149,6 +150,19 @@ const Index = () => {
             onAssignmentUpdate={setAssignments}
             onRoomUpdate={handleRoomUpdate}
             onRequestUpload={() => setActiveTab("panoramas")}
+          />
+        );
+
+      case "floorplan":
+        return (
+          <FloorPlanInterface
+            rooms={rooms}
+            panoramas={panoramas}
+            onRoomSelect={handleRoomSelect}
+            onPanoSelect={(panoId) => {
+              setCurrentNodeId(panoId);
+              setActiveTab("viewer");
+            }}
           />
         );
       
