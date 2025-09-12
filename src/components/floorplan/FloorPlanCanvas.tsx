@@ -77,6 +77,7 @@ export const FloorPlanCanvas = ({
   const [isEditingPolygon, setIsEditingPolygon] = useState<string | null>(null);
   const [dragVertex, setDragVertex] = useState<{ polygonId: string; vertexIndex: number } | null>(null);
   const [imageNaturalSize, setImageNaturalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [loadError, setLoadError] = useState(false);
 
   // Initialize canvas and load image
   useEffect(() => {
@@ -87,10 +88,19 @@ export const FloorPlanCanvas = ({
     if (!context) return;
 
     setCtx(context);
+    // Ensure initial canvas size matches container
+    const initContainer = containerRef.current;
+    if (initContainer) {
+      canvas.width = initContainer.clientWidth;
+      canvas.height = initContainer.clientHeight;
+    }
 
     // Load floor plan image
     const img = new Image();
+    setLoadError(false);
+    const fallbackTimer = window.setTimeout(() => setLoadError(true), 7000);
     img.onload = () => {
+      window.clearTimeout(fallbackTimer);
       console.log("Image loaded successfully:", img.width, "x", img.height);
       setImage(img);
       setImageNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
@@ -105,6 +115,8 @@ export const FloorPlanCanvas = ({
     };
     
     img.onerror = (error) => {
+      window.clearTimeout(fallbackTimer);
+      setLoadError(true);
       console.error("Failed to load image:", error, floorPlan.imagePath);
     };
     
@@ -116,7 +128,7 @@ export const FloorPlanCanvas = ({
 
   // Render canvas content
   const render = useCallback(() => {
-    if (!ctx || !image) return;
+    if (!ctx) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -131,8 +143,19 @@ export const FloorPlanCanvas = ({
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
 
-    // Draw floor plan image
-    ctx.drawImage(image, 0, 0);
+    // Draw floor plan image or fallback background
+    if (image) {
+      ctx.drawImage(image, 0, 0);
+    } else {
+      // Subtle background when no image loaded
+      const w = canvas.width / zoom;
+      const h = canvas.height / zoom;
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, "#f8fafc");
+      grad.addColorStop(1, "#eef2f7");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    }
 
     // Draw room polygons (only if visible based on filter)
     if (interactionFilter === 'rooms' || interactionFilter === 'both') {
@@ -227,17 +250,21 @@ export const FloorPlanCanvas = ({
       ctx.lineWidth = 1 / zoom;
       ctx.globalAlpha = 0.3;
       
-      for (let x = 0; x <= image.width; x += gridSize) {
+      const canvas = canvasRef.current;
+      const baseW = image ? image.width : (canvas ? canvas.width / zoom : 0);
+      const baseH = image ? image.height : (canvas ? canvas.height / zoom : 0);
+      
+      for (let x = 0; x <= baseW; x += gridSize) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, image.height);
+        ctx.lineTo(x, baseH);
         ctx.stroke();
       }
       
-      for (let y = 0; y <= image.height; y += gridSize) {
+      for (let y = 0; y <= baseH; y += gridSize) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(image.width, y);
+        ctx.lineTo(baseW, y);
         ctx.stroke();
       }
       
@@ -730,7 +757,7 @@ export const FloorPlanCanvas = ({
   return (
     <div className="relative w-full h-full" ref={containerRef}>
       {/* Loading indicator */}
-      {!image && (
+      {floorPlan.imagePath && !image && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
@@ -740,6 +767,12 @@ export const FloorPlanCanvas = ({
       )}
       
       {/* Toolbar - Moved to FloorPlanInterface */}
+      {(!floorPlan.imagePath || loadError) && (
+        <div className="absolute top-4 left-4 bg-amber-50 text-amber-900 border border-amber-200 rounded px-3 py-1 shadow z-10">
+          <span className="text-xs font-medium">Draft mode — no floor plan. You can still draw rooms.</span>
+        </div>
+      )}
+
 
       {/* Canvas Controls */}
       <div className="absolute top-4 right-4 space-y-2 z-10">
