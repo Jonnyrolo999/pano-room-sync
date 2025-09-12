@@ -22,6 +22,15 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          glow: "hsl(var(--primary-glow))",
+        },
+        "vue-green": {
+          DEFAULT: "hsl(var(--vue-green))",
+          light: "hsl(var(--vue-green-light))",
+        },
+        "sync-blue": {
+          DEFAULT: "hsl(var(--sync-blue))",
+          dark: "hsl(var(--sync-blue-dark))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -62,6 +71,20 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      backgroundImage: {
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-vue": "var(--gradient-vue)",
+        "gradient-subtle": "var(--gradient-subtle)",
+      },
+      boxShadow: {
+        elegant: "var(--shadow-elegant)",
+        glow: "var(--shadow-glow)",
+        card: "var(--shadow-card)",
+      },
+      transitionTimingFunction: {
+        smooth: "var(--transition-smooth)",
+        spring: "var(--transition-spring)",
       },
       keyframes: {
         "accordion-down": {
