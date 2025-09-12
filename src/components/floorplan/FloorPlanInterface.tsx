@@ -112,74 +112,50 @@ export const FloorPlanInterface = ({ rooms, panoramas, onRoomSelect, onPanoSelec
   }, [buildingName, floorName, scale]);
 
   const convertPdfToImage = async (arrayBuffer: ArrayBuffer): Promise<string> => {
+    // Use a dedicated worker bundled by Vite to avoid CDN/cross-origin issues
+    let worker: Worker | null = null;
     try {
-      // Dynamic import to handle PDF.js
       const pdfjsLib = await import('pdfjs-dist');
-      
-      // Use CDN worker URL - more reliable for Vite builds
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-      
-      const pdf = await pdfjsLib.getDocument({ 
+
+      const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+      worker = new Worker(workerUrl, { type: 'module' });
+      (pdfjsLib as any).GlobalWorkerOptions.workerPort = worker;
+
+      const pdf = await pdfjsLib.getDocument({
         data: arrayBuffer,
-        useSystemFonts: true
+        useSystemFonts: true,
       }).promise;
-      
+
       const page = await pdf.getPage(1); // Get first page
-      
+
       // Higher DPI for crisp rendering
-      const scale = 2.5; // ~200 DPI
+      const scale = 2.0; // ~150–200 DPI
       const viewport = page.getViewport({ scale });
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      
-      if (!context) throw new Error("Could not get canvas context");
-      
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      
+
+      if (!context) throw new Error('Could not get canvas context');
+
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+
       // White background for better contrast
       context.fillStyle = '#ffffff';
       context.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       await page.render({
         canvasContext: context,
-        viewport: viewport,
-        canvas: canvas
+        viewport,
+        canvas,
       }).promise;
-      
-      console.log(`PDF rendered successfully: ${canvas.width}x${canvas.height} at ${scale}x scale`);
+
+      console.info(`PDF rendered successfully: ${canvas.width}x${canvas.height} at ${scale}x scale`);
       return canvas.toDataURL('image/png', 0.95);
     } catch (error) {
-      console.error("PDF conversion error:", error);
-      // Fallback: try without worker for simple cases
-      try {
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-        
-        const pdf = await pdfjsLib.getDocument({ 
-          data: arrayBuffer
-        }).promise;
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 2.0 });
-        
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d')!;
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        await page.render({ 
-          canvasContext: context, 
-          viewport,
-          canvas: canvas
-        }).promise;
-        return canvas.toDataURL('image/png', 0.95);
-      } catch (fallbackError) {
-        console.error("PDF fallback conversion failed:", fallbackError);
-        throw new Error("Failed to convert PDF to image. Please try uploading as JPG/PNG instead.");
-      }
+      console.error('PDF conversion error:', error);
+      throw new Error('Failed to convert PDF to image. Please try uploading as JPG/PNG instead.');
+    } finally {
+      try { worker?.terminate(); } catch {}
     }
   };
 

@@ -265,7 +265,7 @@ export const FloorPlanCanvas = ({
 
     const scaleX = canvasToUse.width / imageToUse.width;
     const scaleY = canvasToUse.height / imageToUse.height;
-    const newZoom = Math.min(scaleX, scaleY) * 0.9;
+    const newZoom = Math.min(scaleX, scaleY);
     
     setZoom(newZoom);
     setPan({
@@ -288,13 +288,28 @@ export const FloorPlanCanvas = ({
 
   // Snap point to grid if enabled
   const snapPoint = useCallback((point: { x: number; y: number }) => {
-    if (!snapToGrid) return point;
-    
+    // Vertex snapping to existing polygon vertices (6–8 px tolerance)
+    const tolerance = 8 / zoom;
+    let snapped = point;
+
+    for (const poly of roomPolygons) {
+      for (const v of poly.points) {
+        const dx = point.x - v.x;
+        const dy = point.y - v.y;
+        if (Math.hypot(dx, dy) <= tolerance) {
+          snapped = { x: v.x, y: v.y };
+          break;
+        }
+      }
+    }
+
+    if (!snapToGrid) return snapped;
+
     return {
-      x: Math.round(point.x / gridSize) * gridSize,
-      y: Math.round(point.y / gridSize) * gridSize
+      x: Math.round(snapped.x / gridSize) * gridSize,
+      y: Math.round(snapped.y / gridSize) * gridSize
     };
-  }, [snapToGrid, gridSize]);
+  }, [snapToGrid, gridSize, zoom, roomPolygons]);
 
   // Get zoom limits
   const getZoomLimits = useCallback(() => {
@@ -307,9 +322,9 @@ export const FloorPlanCanvas = ({
     const scaleY = canvas.height / image.height;
     const fitZoom = Math.min(scaleX, scaleY);
     
-    return { 
-      min: fitZoom * 0.1, // Allow zooming out beyond fit
-      max: 8 // 800% zoom
+    return {
+      min: fitZoom,
+      max: 8
     };
   }, [image]);
 
@@ -390,8 +405,17 @@ export const FloorPlanCanvas = ({
           const imageW = image.width * zoom;
           const imageH = image.height * zoom;
           
-          newPan.x = Math.min(canvas.width * 0.8, Math.max(canvas.width * 0.2 - imageW, newPan.x));
-          newPan.y = Math.min(canvas.height * 0.8, Math.max(canvas.height * 0.2 - imageH, newPan.y));
+          if (imageW <= canvas.width) {
+            newPan.x = (canvas.width - imageW) / 2;
+          } else {
+            newPan.x = Math.min(0, Math.max(canvas.width - imageW, newPan.x));
+          }
+          
+          if (imageH <= canvas.height) {
+            newPan.y = (canvas.height - imageH) / 2;
+          } else {
+            newPan.y = Math.min(0, Math.max(canvas.height - imageH, newPan.y));
+          }
         }
       }
       
@@ -476,6 +500,23 @@ export const FloorPlanCanvas = ({
         x: mouseX - (mouseX - pan.x) * zoomChange,
         y: mouseY - (mouseY - pan.y) * zoomChange
       };
+      
+      // Clamp pan so image stays in view
+      const canvasEl = canvasRef.current;
+      if (canvasEl) {
+        const imageW = image.width * newZoom;
+        const imageH = image.height * newZoom;
+        if (imageW <= canvasEl.width) {
+          newPan.x = (canvasEl.width - imageW) / 2;
+        } else {
+          newPan.x = Math.min(0, Math.max(canvasEl.width - imageW, newPan.x));
+        }
+        if (imageH <= canvasEl.height) {
+          newPan.y = (canvasEl.height - imageH) / 2;
+        } else {
+          newPan.y = Math.min(0, Math.max(canvasEl.height - imageH, newPan.y));
+        }
+      }
       
       setZoom(newZoom);
       setPan(newPan);
