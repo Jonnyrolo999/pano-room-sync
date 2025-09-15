@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import * as React from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronRight, Copy, ExternalLink, MapPin, Ruler, Users, Wrench, Shield, Settings } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,8 +16,6 @@ interface ViewerPanelProps {
   room: Room | null;
   headers: { row1: string[]; row2: string[] };
   currentNodeId: string;
-  highlightedField?: string | null;
-  onFieldClick?: (fieldCode: string) => void;
 }
 
 interface FieldSection {
@@ -28,7 +25,7 @@ interface FieldSection {
   fields: { label: string; code: string; value: any; index: number }[];
 }
 
-export const ViewerPanel = ({ room, headers, currentNodeId, highlightedField, onFieldClick }: ViewerPanelProps) => {
+export const ViewerPanel = ({ room, headers, currentNodeId }: ViewerPanelProps) => {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     basic: true,
   });
@@ -108,25 +105,6 @@ export const ViewerPanel = ({ room, headers, currentNodeId, highlightedField, on
       [sectionTitle.toLowerCase().replace(/[^a-z]/g, '')]: !prev[sectionTitle.toLowerCase().replace(/[^a-z]/g, '')]
     }));
   };
-
-  // Auto-expand section if highlighted field is in it
-  const autoExpandForHighlightedField = () => {
-    if (!highlightedField) return;
-    
-    const sections = categorizeFields();
-    sections.forEach(section => {
-      const hasHighlightedField = section.fields.some(field => field.code === highlightedField);
-      if (hasHighlightedField) {
-        const sectionKey = section.title.toLowerCase().replace(/[^a-z]/g, '');
-        setExpandedSections(prev => ({ ...prev, [sectionKey]: true }));
-      }
-    });
-  };
-
-  // Auto-expand when highlighted field changes
-  React.useEffect(() => {
-    autoExpandForHighlightedField();
-  }, [highlightedField]);
 
   const hasValue = (value: any) => {
     return value !== null && value !== undefined && value !== '' && value !== 'No Data Provided';
@@ -223,44 +201,28 @@ export const ViewerPanel = ({ room, headers, currentNodeId, highlightedField, on
               </CollapsibleTrigger>
               
               <CollapsibleContent className="space-y-2 mt-2">
-                {fieldsToShow.map((field) => {
-                  const isHighlighted = highlightedField === field.code;
-                  return (
-                    <div
-                      key={field.index}
-                      className={`bg-muted/30 rounded-md p-3 space-y-2 transition-all cursor-pointer ${
-                        isHighlighted 
-                          ? 'ring-2 ring-primary bg-primary/10 scale-[1.02]' 
-                          : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => onFieldClick?.(field.code)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium leading-tight">
-                          {field.label}
-                        </span>
-                        <code 
-                          className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-smooth"
-                          title={`Internal code: ${field.code}\nClick to copy`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            copyToClipboard(field.code);
-                          }}
-                        >
-                          {field.code}
-                        </code>
-                      </div>
-                      <div className={`text-sm ${hasValue(field.value) ? '' : 'text-muted-foreground italic'}`}>
-                        {hasValue(field.value) ? field.value : 'No Data Provided'}
-                      </div>
-                      {isHighlighted && (
-                        <div className="text-xs text-primary font-medium">
-                          ← Linked to hotspot in panorama
-                        </div>
-                      )}
+                {fieldsToShow.map((field) => (
+                  <div
+                    key={field.index}
+                    className="bg-muted/30 rounded-md p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium leading-tight">
+                        {field.label}
+                      </span>
+                      <code 
+                        className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-smooth"
+                        title={`Internal code: ${field.code}\nClick to copy`}
+                        onClick={() => copyToClipboard(field.code)}
+                      >
+                        {field.code}
+                      </code>
                     </div>
-                  );
-                })}
+                    <div className={`text-sm ${hasValue(field.value) ? '' : 'text-muted-foreground italic'}`}>
+                      {hasValue(field.value) ? field.value : 'No Data Provided'}
+                    </div>
+                  </div>
+                ))}
               </CollapsibleContent>
             </Collapsible>
           );
