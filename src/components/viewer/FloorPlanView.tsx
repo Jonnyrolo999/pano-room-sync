@@ -97,7 +97,7 @@ export const FloorPlanView = ({ floorPlan, selectedRoomId, onRoomSelect, showLab
           )}
 
           {floorPlan.rooms.map(room => (
-            <Group key={room.id} onClick={() => onRoomSelect?.(room.id === selectedRoomId ? null : room.id)}>
+            <Group key={room.id} onClick={() => onRoomSelect?.(room.id === selectedRoomId ? null : room.id)} onMouseEnter={(e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = 'pointer'; }} onMouseLeave={(e) => { const c = e.target.getStage()?.container(); if (c) c.style.cursor = 'default'; }}>
               {renderPolygon(room.polygon, DEFAULT_ROOM_COLOR, selectedRoomId === room.id)}
               {showLabels && room.polygon[0] && (
                 <Text

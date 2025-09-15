@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
-import { Upload, Image as ImageIcon, Trash2, CheckCircle2, AlertCircle, Edit3, RotateCw } from "lucide-react";
+import { Upload, Image as ImageIcon, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import { parse as exifrParse } from "exifr";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface PanoramaItem {
   nodeId: string;
@@ -40,6 +41,24 @@ export const PanoramasManager = ({ panoramas, onChange, rooms = [] }: PanoramasM
 
   const deletePanorama = (nodeId: string) => {
     onChange(panoramas.filter(p => p.nodeId !== nodeId));
+  };
+
+  const handleAssignRoom = (nodeId: string, newRoomId: string | null) => {
+    const next = panoramas.map(p => {
+      if (p.nodeId !== nodeId) return p;
+      const prevRoomId = p.roomId;
+      if (prevRoomId && prevRoomId !== newRoomId) {
+        const prevName = getRoomName(prevRoomId);
+        const nextName = getRoomName(newRoomId || undefined);
+        const ok = window.confirm(`This panorama is already assigned to "${prevName}".\nChange assignment to "${nextName}"?`);
+        if (!ok) return p;
+      }
+      return { ...p, roomId: newRoomId || undefined };
+    });
+    onChange(next);
+    if (newRoomId) {
+      setMessage({ type: 'success', text: `Panorama ${nodeId} assigned to ${getRoomName(newRoomId)}` });
+    }
   };
 
   const generateNodeIdFromFileName = (fileName: string): string => {
@@ -271,17 +290,28 @@ export const PanoramasManager = ({ panoramas, onChange, rooms = [] }: PanoramasM
                           </div>
                         )}
                       </td>
-                      <td className="p-2 font-mono text-sm">{p.nodeId}</td>
+                      <td className="p-2 font-mono text-sm">
+                        <span title={p.nodeId}>
+                          {p.roomId ? `${getRoomName(p.roomId)}-${p.nodeId}` : p.nodeId}
+                        </span>
+                      </td>
                       <td className="p-2">{p.title}</td>
                       <td className="p-2 text-sm text-muted-foreground">{p.fileName || '-'}</td>
                       <td className="p-2">
-                        {p.roomId ? (
-                          <Badge variant="secondary">{getRoomName(p.roomId)}</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            Unassigned
-                          </Badge>
-                        )}
+                        <Select
+                          value={p.roomId ?? 'unassigned'}
+                          onValueChange={(val) => handleAssignRoom(p.nodeId, val === 'unassigned' ? null : val)}
+                        >
+                          <SelectTrigger className="w-44 z-[60]">
+                            <SelectValue placeholder="Assign room" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[60]">
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {rooms.map(r => (
+                              <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="p-2">
                         <Button
