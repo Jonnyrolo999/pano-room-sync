@@ -120,7 +120,7 @@ const Index = () => {
         if (!ctx) throw new Error('Canvas not supported');
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
         const blob: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b as Blob), 'image/png')!);
         const imageUrl = URL.createObjectURL(blob);
         const newFloorPlan: FloorPlan = {
