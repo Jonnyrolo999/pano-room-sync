@@ -9,6 +9,7 @@ import { FileImage, Upload, Settings, Info } from "lucide-react";
 import { useBuildingStore } from "@/stores/buildingStore";
 import { useFloorplanStore } from "@/stores/floorplanStore";
 import { toast } from "sonner";
+import { FloorPlanStatusPanel } from "@/components/floorplan/FloorPlanStatusPanel";
 
 export const PlanTab = () => {
   const { getActiveFloor, updateFloor } = useBuildingStore();
@@ -167,53 +168,17 @@ export const PlanTab = () => {
         )}
 
         {/* Floor Plan Status Overlay */}
-        {hasFloorPlan && (
-          <div className="absolute top-4 left-4 z-10">
-            <Card className="w-80">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <FileImage className="h-4 w-4" />
-                    Floor Plan Status
-                  </CardTitle>
-                  <Badge variant="secondary" className="text-xs">
-                    Active
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <div className="text-muted-foreground">Dimensions</div>
-                    <div className="font-medium">
-                      {activeFloor.widthPx || "Auto"} × {activeFloor.heightPx || "Auto"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">DPI</div>
-                    <div className="font-medium">{activeFloor.dpi || "Default"}</div>
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setShowUploader(true)}
-                    className="gap-1"
-                  >
-                    <Upload className="h-3 w-3" />
-                    Replace Plan
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Settings className="h-3 w-3" />
-                    Calibrate
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        {hasFloorPlan && activeFloor && (
+          <FloorPlanStatusPanel
+            projectId={`${activeFloor.buildingId || 'default'}:${activeFloor.id}`}
+            widthPx={activeFloor.widthPx}
+            heightPx={activeFloor.heightPx}
+            dpi={activeFloor.dpi}
+            onReplacePlan={() => setShowUploader(true)}
+            onCalibrate={handleToggleCalibration}
+          />
         )}
+
       </div>
 
       {/* Right Panel - Plan Tools */}
