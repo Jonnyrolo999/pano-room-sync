@@ -38,6 +38,7 @@ interface Panorama {
   pitchOffset?: number;
   rollOffset?: number;
   metadata?: any;
+  roomId?: string;
 }
 
 interface FloorPlan {
@@ -260,7 +261,8 @@ const Index = () => {
                   height: 0,
                   yawOffset: 0,
                   pitchOffset: 0,
-                  rollOffset: 0
+                  rollOffset: 0,
+                  roomId: roomId
                 }));
                 
                 // Update room panorama count
@@ -282,13 +284,14 @@ const Index = () => {
           />
         );
       
-      case "panoramas":
-        return (
-          <PanoramasManager
-            panoramas={panoramas}
-            onChange={setPanoramas}
-          />
-        );
+        case "panoramas":
+          return (
+            <PanoramasManager
+              panoramas={panoramas}
+              onChange={setPanoramas}
+              rooms={rooms.map(r => ({ id: r.id, name: r.data[0] || r.id }))}
+            />
+          );
 
       case "assign":
         if (rooms.length === 0) {

@@ -19,16 +19,28 @@ export interface PanoramaItem {
   pitchOffset?: number;
   rollOffset?: number;
   metadata?: any;
+  roomId?: string;
 }
 
 interface PanoramasManagerProps {
   panoramas: PanoramaItem[];
   onChange: (items: PanoramaItem[]) => void;
+  rooms?: { id: string; name: string }[];
 }
 
-export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps) => {
+export const PanoramasManager = ({ panoramas, onChange, rooms = [] }: PanoramasManagerProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const getRoomName = (roomId?: string) => {
+    if (!roomId) return "Unassigned";
+    const room = rooms.find(r => r.id === roomId);
+    return room?.name || roomId;
+  };
+
+  const deletePanorama = (nodeId: string) => {
+    onChange(panoramas.filter(p => p.nodeId !== nodeId));
+  };
 
   const generateNodeIdFromFileName = (fileName: string): string => {
     // Remove file extension and clean up
@@ -239,7 +251,8 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
                     <th className="text-left p-2 font-medium">Node ID</th>
                     <th className="text-left p-2 font-medium">Title</th>
                     <th className="text-left p-2 font-medium">File Name</th>
-                    <th className="text-left p-2 font-medium">Floor</th>
+                    <th className="text-left p-2 font-medium">Assigned Room</th>
+                    <th className="text-left p-2 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -261,7 +274,25 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
                       <td className="p-2 font-mono text-sm">{p.nodeId}</td>
                       <td className="p-2">{p.title}</td>
                       <td className="p-2 text-sm text-muted-foreground">{p.fileName || '-'}</td>
-                      <td className="p-2 text-sm text-muted-foreground">{p.floor || '-'}</td>
+                      <td className="p-2">
+                        {p.roomId ? (
+                          <Badge variant="secondary">{getRoomName(p.roomId)}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            Unassigned
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="p-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deletePanorama(p.nodeId)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

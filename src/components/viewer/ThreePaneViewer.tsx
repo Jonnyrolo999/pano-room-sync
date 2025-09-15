@@ -26,9 +26,6 @@ interface FloorPlanRoom {
   name: string;
   polygon: { x: number; y: number }[];
   level?: string;
-  rag?: 'Minimal' | 'Minor' | 'Significant';
-  notes?: string;
-  panoramas?: Panorama[];
 }
 
 interface Panorama {
@@ -43,6 +40,7 @@ interface Panorama {
   pitchOffset?: number;
   rollOffset?: number;
   metadata?: any;
+  roomId?: string;
 }
 
 interface ThreePaneViewerProps {
@@ -128,10 +126,8 @@ export const ThreePaneViewer = ({
   };
 
   const getSelectedRoomPanoramas = (): Panorama[] => {
-    if (!selectedRoomId || !floorPlan) return [];
-    
-    const floorPlanRoom = floorPlan.rooms.find(r => r.id === selectedRoomId);
-    return floorPlanRoom?.panoramas || [];
+    if (!selectedRoomId) return [];
+    return panoramas.filter(p => p.roomId === selectedRoomId);
   };
 
   const getGridCols = () => {
