@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Stage, Layer, Line, Rect, Text } from "react-konva";
+import { Stage, Layer, Line, Rect, Text, Group } from "react-konva";
 
 interface Point { x: number; y: number }
 interface Room { id: string; name: string; polygon: Point[]; level?: string; rag?: 'Minimal' | 'Minor' | 'Significant' }
@@ -72,7 +72,7 @@ export const FloorPlanView = ({ floorPlan, selectedRoomId, onRoomSelect, showLab
           />
 
           {floorPlan.rooms.map(room => (
-            <g key={room.id} onClick={() => onRoomSelect?.(room.id === selectedRoomId ? null : room.id)}>
+            <Group key={room.id} onClick={() => onRoomSelect?.(room.id === selectedRoomId ? null : room.id)}>
               {renderPolygon(room.polygon, getRoomColor(room.rag), selectedRoomId === room.id)}
               {showLabels && room.polygon[0] && (
                 <Text
@@ -83,7 +83,7 @@ export const FloorPlanView = ({ floorPlan, selectedRoomId, onRoomSelect, showLab
                   fill="#000"
                 />
               )}
-            </g>
+            </Group>
           ))}
         </Layer>
       </Stage>

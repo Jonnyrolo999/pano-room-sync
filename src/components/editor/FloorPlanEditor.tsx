@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Stage, Layer, Line, Circle, Rect, Text } from "react-konva";
+import { Stage, Layer, Line, Circle, Rect, Text, Group } from "react-konva";
 import { Upload, Download, Trash2, Move, Edit3, Save, X, Plus, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -138,8 +138,6 @@ export const FloorPlanEditor = ({
       name: newRoomData.name.trim(),
       polygon: [...currentPolygon],
       level: newRoomData.level.trim() || undefined,
-      rag: newRoomData.rag,
-      notes: newRoomData.notes.trim() || undefined,
       panoramaCount: 0
     };
 
@@ -379,13 +377,6 @@ export const FloorPlanEditor = ({
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-sm">{room.name}</span>
                       <div className="flex items-center space-x-1">
-                        <Badge 
-                          variant="secondary" 
-                          className="text-xs"
-                          style={{ backgroundColor: getRoomColor(room.rag) + '20' }}
-                        >
-                          {room.rag}
-                        </Badge>
                         {room.panoramaCount !== undefined && (
                           <Badge variant="outline" className="text-xs">
                             {room.panoramaCount} panos
@@ -478,10 +469,10 @@ export const FloorPlanEditor = ({
               
               {/* Room polygons */}
               {rooms.map(room => (
-                <g key={room.id}>
+                <Group key={room.id}>
                   {renderPolygon(
                     room.polygon, 
-                    getRoomColor(room.rag), 
+                    getRoomColor(), 
                     selectedRoomId === room.id
                   )}
                   {renderVertices(room)}
@@ -496,7 +487,7 @@ export const FloorPlanEditor = ({
                       onClick={() => handleRoomClick(room.id)}
                     />
                   )}
-                </g>
+                </Group>
               ))}
               
               {/* Current drawing polygon */}
@@ -559,31 +550,6 @@ export const FloorPlanEditor = ({
                   value={newRoomData.level}
                   onChange={(e) => setNewRoomData(prev => ({ ...prev, level: e.target.value }))}
                   placeholder="e.g., Ground Floor"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="room-rag">RAG Status</Label>
-                <Select value={newRoomData.rag} onValueChange={(value: any) => setNewRoomData(prev => ({ ...prev, rag: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Minimal">Minimal</SelectItem>
-                    <SelectItem value="Minor">Minor</SelectItem>
-                    <SelectItem value="Significant">Significant</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="room-notes">Notes</Label>
-                <Textarea
-                  id="room-notes"
-                  value={newRoomData.notes}
-                  onChange={(e) => setNewRoomData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Optional notes"
-                  rows={3}
                 />
               </div>
               

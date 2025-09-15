@@ -141,9 +141,11 @@ export const PanoramaViewer = ({ panoramas, currentNodeId, onPanoramaChange }: P
 
   const resetView = () => {
     if (viewer) {
-      viewer.setPitch(0);
-      viewer.setYaw(0);
-      viewer.setHfov(90);
+      try {
+        viewer.setPitch(0);
+        viewer.setYaw(0);
+        viewer.setHfov(90);
+      } catch {}
     }
     setYaw(0);
     setPitch(0);
@@ -151,12 +153,19 @@ export const PanoramaViewer = ({ panoramas, currentNodeId, onPanoramaChange }: P
 
   const retryLoad = () => {
     setError(null);
-    // Trigger reload by forcing re-render
-    if (currentPano?.imageUrl) {
-      window.location.reload();
+    // Trigger reload by reinitializing viewer
+    if (currentPano?.imageUrl && viewerRef.current) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        // will trigger useEffect via same image url? Force re-render by setting state
+        setLoading(false);
+        setError(null);
+      };
+      img.onerror = () => setError('Failed to load image. Check CORS and URL.');
+      img.src = currentPano.imageUrl;
     }
   };
-
   if (!currentPano) {
     return (
       <Card className="h-full">

@@ -17,7 +17,7 @@ import { Play, RotateCcw } from "lucide-react";
 import { parse as exifrParse } from "exifr";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
 // @ts-ignore - Vite will resolve this worker url
-import workerUrl from "pdfjs-dist/build/pdf.worker?url";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.js?url";
 (GlobalWorkerOptions as any).workerSrc = workerUrl;
 
 interface Room {
