@@ -119,49 +119,47 @@ export const FullRoomsTable = () => {
     return filtered;
   }, [rooms, searchTerm, sortColumn, sortDirection]);
 
-  const getValueForColumn = (room: Room, columnKey: string): any => {
-    switch (columnKey) {
-      case 'name':
-        return room.name;
-      case 'id':
-        return room.id;
-      case 'area':
-        return calculateArea(room.polygon) || 0;
-      case 'perimeter':
-        return calculatePerimeter(room.polygon) || 0;
-      case 'notes':
-        return room.propertiesJson?.notes || '';
-      case 'tags':
-        return room.propertiesJson?.tags || [];
-      default:
-        return room.propertiesJson?.[columnKey] || '';
-    }
-  };
+function getValueForColumn(room: Room, columnKey: string): any {
+  switch (columnKey) {
+    case 'name':
+      return room.name;
+    case 'id':
+      return room.id;
+    case 'area':
+      return calculateArea(room.polygon) || 0;
+    case 'perimeter':
+      return calculatePerimeter(room.polygon) || 0;
+    case 'notes':
+      return room.propertiesJson?.notes || '';
+    case 'tags':
+      return room.propertiesJson?.tags || [];
+    default:
+      return room.propertiesJson?.[columnKey] || '';
+  }
+}
 
-  const calculateArea = (polygon: Array<[number, number]>): number => {
-    if (!polygon || polygon.length < 3) return 0;
-    
-    let area = 0;
-    for (let i = 0; i < polygon.length; i++) {
-      const j = (i + 1) % polygon.length;
-      area += polygon[i][0] * polygon[j][1];
-      area -= polygon[j][0] * polygon[i][1];
-    }
-    return Math.abs(area) / 2;
-  };
+function calculateArea(polygon: Array<[number, number]>): number {
+  if (!polygon || polygon.length < 3) return 0;
+  let area = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const j = (i + 1) % polygon.length;
+    area += polygon[i][0] * polygon[j][1];
+    area -= polygon[j][0] * polygon[i][1];
+  }
+  return Math.abs(area) / 2;
+}
 
-  const calculatePerimeter = (polygon: Array<[number, number]>): number => {
-    if (!polygon || polygon.length < 2) return 0;
-    
-    let perimeter = 0;
-    for (let i = 0; i < polygon.length; i++) {
-      const j = (i + 1) % polygon.length;
-      const dx = polygon[j][0] - polygon[i][0];
-      const dy = polygon[j][1] - polygon[i][1];
-      perimeter += Math.sqrt(dx * dx + dy * dy);
-    }
-    return perimeter;
-  };
+function calculatePerimeter(polygon: Array<[number, number]>): number {
+  if (!polygon || polygon.length < 2) return 0;
+  let perimeter = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const j = (i + 1) % polygon.length;
+    const dx = polygon[j][0] - polygon[i][0];
+    const dy = polygon[j][1] - polygon[i][1];
+    perimeter += Math.sqrt(dx * dx + dy * dy);
+  }
+  return perimeter;
+}
 
   const handleSort = (columnKey: string) => {
     if (sortColumn === columnKey) {
