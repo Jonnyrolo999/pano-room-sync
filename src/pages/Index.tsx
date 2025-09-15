@@ -15,10 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Play, RotateCcw } from "lucide-react";
 import { parse as exifrParse } from "exifr";
-import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
-// @ts-ignore - Vite will resolve this worker url
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.js?url";
-(GlobalWorkerOptions as any).workerSrc = workerUrl;
 
 interface Room {
   id: string;
@@ -110,8 +106,24 @@ const Index = () => {
   const handleFloorPlanUpload = async (file: File) => {
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       try {
+        // Load PDF.js from CDN
+        if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          document.head.appendChild(script);
+          
+          await new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = reject;
+          });
+
+          // Set worker
+          (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        const pdfjsLib = (window as any).pdfjsLib;
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await getDocument({ data: arrayBuffer }).promise;
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
         const dpi = 200; // ~200 DPI
         const viewport = page.getViewport({ scale: dpi / 72 });
@@ -210,9 +222,62 @@ const Index = () => {
             onRoomUpdate={handleRoomsUpdate}
             selectedRoomId={selectedRoomId}
             onRoomSelect={handleFloorPlanRoomSelect}
-            onPanoramaUpload={(roomId, files) => {
-              // Handle panorama upload to specific room
-              console.log('Upload panoramas to room', roomId, files);
+            onPanoramaUpload={async (roomId, files) => {
+              // Handle panorama upload with 2:1 validation
+              const validFiles: File[] = [];
+              
+              for (const file of Array.from(files)) {
+                try {
+                  const img = new Image();
+                  img.crossOrigin = 'anonymous';
+                  
+                  await new Promise((resolve, reject) => {
+                    img.onload = () => {
+                      const aspectRatio = img.width / img.height;
+                      if (Math.abs(aspectRatio - 2) > 0.1) {
+                        reject(new Error(`Invalid aspect ratio: ${aspectRatio.toFixed(2)}. Expected ~2:1 for equirectangular panoramas.`));
+                        return;
+                      }
+                      resolve(img);
+                    };
+                    img.onerror = () => reject(new Error('Failed to load image'));
+                    img.src = URL.createObjectURL(file);
+                  });
+                  
+                  validFiles.push(file);
+                } catch (e) {
+                  console.error('Invalid panorama file:', file.name, e);
+                }
+              }
+              
+              if (validFiles.length > 0) {
+                // Create panoramas and add to room
+                const newPanos = validFiles.map(file => ({
+                  nodeId: `${roomId}-pano-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  title: file.name.replace(/\.[^/.]+$/, ""),
+                  imageUrl: URL.createObjectURL(file),
+                  width: 0, // Will be set after load
+                  height: 0,
+                  yawOffset: 0,
+                  pitchOffset: 0,
+                  rollOffset: 0
+                }));
+                
+                // Update room panorama count
+                if (floorPlan) {
+                  const updatedRooms = floorPlan.rooms.map(room => 
+                    room.id === roomId 
+                      ? { ...room, panoramaCount: (room.panoramaCount || 0) + validFiles.length }
+                      : room
+                  );
+                  setFloorPlan({ ...floorPlan, rooms: updatedRooms });
+                }
+                
+                // Add to global panoramas list
+                setPanoramas(prev => [...prev, ...newPanos]);
+                
+                console.log(`Uploaded ${validFiles.length} valid panoramas to room ${roomId}`);
+              }
             }}
           />
         );

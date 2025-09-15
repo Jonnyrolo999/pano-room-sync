@@ -20,8 +20,6 @@ interface Room {
   name: string;
   polygon: Point[];
   level?: string;
-  rag?: 'Minimal' | 'Minor' | 'Significant';
-  notes?: string;
   panoramaCount?: number;
 }
 
@@ -60,7 +58,7 @@ export const FloorPlanEditor = ({
   const [currentPolygon, setCurrentPolygon] = useState<Point[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [showRoomForm, setShowRoomForm] = useState(false);
-  const [newRoomData, setNewRoomData] = useState({ name: '', level: '', rag: 'Minimal' as const, notes: '' });
+  const [newRoomData, setNewRoomData] = useState({ name: '', level: '' });
   const [scale, setScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
 
@@ -146,7 +144,7 @@ export const FloorPlanEditor = ({
     // Reset state
     setCurrentPolygon([]);
     setShowRoomForm(false);
-    setNewRoomData({ name: '', level: '', rag: 'Minimal', notes: '' });
+    setNewRoomData({ name: '', level: '' });
     setMode('select');
   };
 
@@ -156,7 +154,7 @@ export const FloorPlanEditor = ({
     setShowRoomForm(false);
     setIsDrawing(false);
     setMode('select');
-    setNewRoomData({ name: '', level: '', rag: 'Minimal', notes: '' });
+    setNewRoomData({ name: '', level: '' });
   };
 
   // Handle room polygon click
@@ -404,13 +402,6 @@ export const FloorPlanEditor = ({
                     )}
                   </div>
                   
-                  {selectedRoom.notes && (
-                    <div>
-                      <Label className="text-xs">Notes</Label>
-                      <p className="text-sm mt-1">{selectedRoom.notes}</p>
-                    </div>
-                  )}
-
                   <div className="space-y-2">
                     <Label className="text-xs">Panoramas</Label>
                     <Button 
