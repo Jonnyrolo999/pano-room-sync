@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Upload, Image as ImageIcon, Trash2, CheckCircle2, AlertCircle, Edit3, RotateCw } from "lucide-react";
-import * as exifr from "exifr";
+import { parse as exifrParse } from "exifr";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +99,7 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
                 let rollOffset = 0;
 
                 try {
-                  const exifData = await exifr.parse(file, { 
+                  const exifData = await exifrParse(file, { 
                     gps: true, 
                     xmp: true, 
                     icc: false,
