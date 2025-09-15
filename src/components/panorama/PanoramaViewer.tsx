@@ -32,12 +32,13 @@ export const PanoramaViewer = ({ panoramas, currentNodeId, onPanoramaChange }: P
       setError(null);
 
       try {
-        // Dynamically import Pannellum
-        const pannellum = await import('pannellum-react');
-        
         // Clean up existing viewer
         if (viewer) {
-          viewer.destroy();
+          try {
+            viewer.destroy();
+          } catch (e) {
+            console.warn("Error destroying previous viewer:", e);
+          }
         }
 
         // Validate image dimensions (should be 2:1 for equirectangular)
@@ -57,21 +58,39 @@ export const PanoramaViewer = ({ panoramas, currentNodeId, onPanoramaChange }: P
           img.src = currentPano.imageUrl!;
         });
 
+        // Load pannellum from global script
+        if (typeof window !== 'undefined' && !(window as any).pannellum) {
+          // Create and load pannellum script
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js';
+          document.head.appendChild(script);
+          
+          await new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = reject;
+          });
+
+          // Load CSS
+          const css = document.createElement('link');
+          css.rel = 'stylesheet';
+          css.href = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css';
+          document.head.appendChild(css);
+        }
+
         // Create viewer instance with proper configuration
-        const viewerInstance = new (pannellum as any).Pannellum(viewerRef.current, {
+        const pannellum = (window as any).pannellum;
+        const viewerInstance = pannellum.viewer(viewerRef.current, {
           type: "equirectangular",
           panorama: currentPano.imageUrl,
           autoLoad: true,
-          preview: currentPano.imageUrl,
           showZoomCtrl: false,
           showFullscreenCtrl: false,
-          mouseDrag: true,
-          mouseWheel: true,
+          mouseZoom: true,
           doubleClickZoom: true,
           keyboardZoom: false,
           hfov: 90,
-          pitch: pitch,
-          yaw: yaw,
+          pitch: currentPano.pitchOffset || 0,
+          yaw: currentPano.yawOffset || 0,
           minHfov: 30,
           maxHfov: 120,
           onLoad: () => {

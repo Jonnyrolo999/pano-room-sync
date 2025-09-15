@@ -7,6 +7,8 @@ import { ViewerPanel } from "@/components/viewer/ViewerPanel";
 import { PanoramasManager } from "@/components/panoramas/PanoramasManager";
 import { PanoramaViewer } from "@/components/panorama/PanoramaViewer";
 import { FloorPlanCanvas } from "@/components/floorplan/FloorPlanCanvas";
+import { FloorPlanEditor } from "@/components/editor/FloorPlanEditor";
+import { ThreePaneViewer } from "@/components/viewer/ThreePaneViewer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -165,12 +167,16 @@ const Index = () => {
       
       case "floorplan":
         return (
-          <FloorPlanCanvas
+          <FloorPlanEditor
             floorPlan={floorPlan}
             onFloorPlanUpload={handleFloorPlanUpload}
             onRoomUpdate={handleRoomsUpdate}
             selectedRoomId={selectedRoomId}
             onRoomSelect={handleFloorPlanRoomSelect}
+            onPanoramaUpload={(roomId, files) => {
+              // Handle panorama upload to specific room
+              console.log('Upload panoramas to room', roomId, files);
+            }}
           />
         );
       
@@ -206,34 +212,16 @@ const Index = () => {
       
       case "viewer":
         return (
-          <div className="flex gap-6 h-[calc(100vh-8rem)]">
-            {/* Left Column: Floor Plan */}
-            <div className="w-2/5">
-              <FloorPlanCanvas
-                floorPlan={floorPlan}
-                onFloorPlanUpload={handleFloorPlanUpload}
-                onRoomUpdate={handleRoomsUpdate}
-                selectedRoomId={selectedRoomId}
-                onRoomSelect={handleFloorPlanRoomSelect}
-              />
-            </div>
-            
-            {/* Right Column: Panorama Viewer */}
-            <div className="flex-1">
-              <PanoramaViewer
-                panoramas={panoramas}
-                currentNodeId={currentNodeId}
-                onPanoramaChange={setCurrentNodeId}
-              />
-            </div>
-            
-            {/* Room Info Panel */}
-            <ViewerPanel
-              room={getCurrentRoom()}
-              headers={headers}
-              currentNodeId={currentNodeId}
-            />
-          </div>
+          <ThreePaneViewer
+            floorPlan={floorPlan}
+            rooms={rooms}
+            headers={headers}
+            panoramas={panoramas}
+            selectedRoomId={selectedRoomId}
+            currentNodeId={currentNodeId}
+            onRoomSelect={handleFloorPlanRoomSelect}
+            onPanoramaChange={setCurrentNodeId}
+          />
         );
       
       default:
