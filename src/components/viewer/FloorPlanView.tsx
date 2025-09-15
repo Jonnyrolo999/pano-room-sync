@@ -1,8 +1,8 @@
-import { useRef } from "react";
-import { Stage, Layer, Line, Rect, Text, Group } from "react-konva";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Stage, Layer, Line, Text, Group, Image as KonvaImage } from "react-konva";
 
 interface Point { x: number; y: number }
-interface Room { id: string; name: string; polygon: Point[]; level?: string; rag?: 'Minimal' | 'Minor' | 'Significant' }
+interface Room { id: string; name: string; polygon: Point[]; level?: string }
 interface FloorPlan { id: string; imageUrl: string; width: number; height: number; rooms: Room[] }
 
 interface FloorPlanViewProps {
@@ -12,17 +12,37 @@ interface FloorPlanViewProps {
   showLabels?: boolean;
 }
 
-const getRoomColor = (rag?: string) => {
-  switch (rag) {
-    case 'Significant': return '#ef4444';
-    case 'Minor': return '#f59e0b';
-    default: return '#10b981';
-  }
-};
+const DEFAULT_ROOM_COLOR = "#10b981";
 
 export const FloorPlanView = ({ floorPlan, selectedRoomId, onRoomSelect, showLabels = true }: FloorPlanViewProps) => {
   const stageRef = useRef<any>(null);
-  const scale = 1; // simple view for now
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  // Load background image reliably
+  useEffect(() => {
+    if (!floorPlan?.imageUrl) return;
+    const img = new Image();
+    img.onload = () => setBgImage(img);
+    img.src = floorPlan.imageUrl;
+    return () => {
+      setBgImage(null);
+    };
+  }, [floorPlan?.imageUrl]);
+
+  // Track container width for responsive scaling
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(containerRef.current);
+    setContainerWidth(containerRef.current.clientWidth);
+    return () => observer.disconnect();
+  }, []);
 
   if (!floorPlan) return (
     <div className="h-full rounded-lg border bg-muted/20 flex items-center justify-center">
@@ -30,7 +50,13 @@ export const FloorPlanView = ({ floorPlan, selectedRoomId, onRoomSelect, showLab
     </div>
   );
 
-  const renderPolygon = (points: Point[], color: string, isSelected: boolean = false) => {
+  const aspect = floorPlan.height / floorPlan.width;
+  const targetWidth = Math.max(280, Math.min(containerWidth || window.innerWidth / 3, floorPlan.width));
+  const stageWidth = targetWidth;
+  const stageHeight = targetWidth * aspect;
+  const scale = stageWidth / floorPlan.width;
+
+  const renderPolygon = (points: Point[], color: string = DEFAULT_ROOM_COLOR, isSelected: boolean = false) => {
     const flatPoints = points.flatMap(p => [p.x * scale, p.y * scale]);
     return (
       <>
@@ -41,7 +67,6 @@ export const FloorPlanView = ({ floorPlan, selectedRoomId, onRoomSelect, showLab
           stroke={isSelected ? '#3b82f6' : '#64748b'}
           strokeWidth={isSelected ? 3 : 2}
           opacity={0.25}
-          onClick={() => {}}
         />
         <Line
           points={flatPoints}
@@ -54,26 +79,26 @@ export const FloorPlanView = ({ floorPlan, selectedRoomId, onRoomSelect, showLab
   };
 
   return (
-    <div className="h-full border rounded-lg overflow-hidden bg-gray-50">
+    <div ref={containerRef} className="h-full border rounded-lg overflow-hidden bg-gray-50">
       <Stage
         ref={stageRef}
-        width={window.innerWidth / 3}
-        height={window.innerHeight - 160}
+        width={stageWidth}
+        height={stageHeight}
       >
         <Layer>
-          <Rect
-            width={floorPlan.width}
-            height={floorPlan.height}
-            fillPatternImage={(() => {
-              const img = new Image();
-              img.src = floorPlan.imageUrl;
-              return img;
-            })()}
-          />
+          {bgImage && (
+            <KonvaImage
+              image={bgImage}
+              x={0}
+              y={0}
+              width={floorPlan.width * scale}
+              height={floorPlan.height * scale}
+            />
+          )}
 
           {floorPlan.rooms.map(room => (
             <Group key={room.id} onClick={() => onRoomSelect?.(room.id === selectedRoomId ? null : room.id)}>
-              {renderPolygon(room.polygon, getRoomColor(room.rag), selectedRoomId === room.id)}
+              {renderPolygon(room.polygon, DEFAULT_ROOM_COLOR, selectedRoomId === room.id)}
               {showLabels && room.polygon[0] && (
                 <Text
                   x={room.polygon[0].x * scale}

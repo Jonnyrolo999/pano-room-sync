@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Play, RotateCcw } from "lucide-react";
 import { parse as exifrParse } from "exifr";
+import { toast } from "sonner";
 
 interface Room {
   id: string;
@@ -276,8 +277,15 @@ const Index = () => {
                 }
                 
                 // Add to global panoramas list
-                setPanoramas(prev => [...prev, ...newPanos]);
+                setPanoramas(prev => {
+                  const updated = [...prev, ...newPanos];
+                  // Set current node to the first of the new uploads
+                  setCurrentNodeId(newPanos[0].nodeId);
+                  return updated;
+                });
                 
+                const roomName = floorPlan?.rooms.find(r => r.id === roomId)?.name || roomId;
+                toast.success(`${validFiles.length} panorama${validFiles.length > 1 ? 's' : ''} uploaded and assigned to ${roomName}`);
                 console.log(`Uploaded ${validFiles.length} valid panoramas to room ${roomId}`);
               }
             }}

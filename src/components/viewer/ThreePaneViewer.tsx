@@ -94,6 +94,14 @@ export const ThreePaneViewer = ({
     localStorage.setItem('viewer-state', JSON.stringify(viewerState));
   }, [viewerState]);
 
+  // Ensure a valid current node is selected based on the current room filter
+  useEffect(() => {
+    const list = selectedRoomId ? panoramas.filter(p => p.roomId === selectedRoomId) : panoramas;
+    if (list.length > 0 && !list.some(p => p.nodeId === currentNodeId)) {
+      onPanoramaChange(list[0].nodeId);
+    }
+  }, [selectedRoomId, panoramas]);
+
   const togglePane = (pane: keyof ViewerState) => {
     setViewerState(prev => ({
       ...prev,
