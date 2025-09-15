@@ -93,16 +93,23 @@ export const PanoramaViewer = ({ panoramas, currentNodeId, onPanoramaChange }: P
           yaw: currentPano.yawOffset || 0,
           minHfov: 30,
           maxHfov: 120,
-          onLoad: () => {
-            console.log("Panorama loaded successfully");
-            setLoading(false);
-          },
-          onError: (error: string) => {
-            console.error("Pannellum error:", error);
-            setError(`Viewer error: ${error}`);
-            setLoading(false);
-          }
         });
+
+        // Attach events
+        try {
+          viewerInstance.on('load', () => {
+            console.log('Panorama loaded successfully');
+            setLoading(false);
+          });
+          viewerInstance.on('error', (err: any) => {
+            console.error('Pannellum error:', err);
+            setError(typeof err === 'string' ? `Viewer error: ${err}` : 'Viewer error');
+            setLoading(false);
+          });
+        } catch (e) {
+          // Some builds of pannellum may not support .on
+          setLoading(false);
+        }
 
         setViewer(viewerInstance);
 

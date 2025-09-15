@@ -292,13 +292,14 @@ const Index = () => {
           />
         );
       
-          return (
-            <PanoramasManager
-              panoramas={panoramas}
-              onChange={setPanoramas}
-              rooms={rooms.map(r => ({ id: r.id, name: r.data[1] || r.data[0] || r.id }))}
-            />
-          );
+      case "panoramas":
+        return (
+          <PanoramasManager
+            panoramas={panoramas}
+            onChange={setPanoramas}
+            rooms={rooms.map(r => ({ id: r.id, name: r.data[1] || r.data[0] || r.id }))}
+          />
+        );
 
       case "assign":
         if (rooms.length === 0) {
