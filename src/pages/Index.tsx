@@ -9,6 +9,7 @@ import { PanoramaViewer } from "@/components/panorama/PanoramaViewer";
 import { FloorPlanCanvas } from "@/components/floorplan/FloorPlanCanvas";
 import { FloorPlanEditor } from "@/components/editor/FloorPlanEditor";
 import { ThreePaneViewer } from "@/components/viewer/ThreePaneViewer";
+import { RoomDataAssignmentInterface } from "@/components/assignment/RoomDataAssignmentInterface";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -292,6 +293,16 @@ const Index = () => {
           />
         );
       
+      case "room-assignment":
+        return (
+          <RoomDataAssignmentInterface
+            rooms={rooms}
+            headers={headers}
+            floorPlan={floorPlan}
+            onFloorPlanRoomsUpdate={handleRoomsUpdate}
+          />
+        );
+
       case "panoramas":
         return (
           <PanoramasManager
