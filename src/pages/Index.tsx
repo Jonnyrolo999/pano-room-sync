@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Play, RotateCcw } from "lucide-react";
+import { parse as exifrParse } from "exifr";
+import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
+// @ts-ignore - Vite will resolve this worker url
+import workerUrl from "pdfjs-dist/build/pdf.worker?url";
+(GlobalWorkerOptions as any).workerSrc = workerUrl;
 
 interface Room {
   id: string;
@@ -54,6 +59,8 @@ interface FloorPlanRoom {
   level?: string;
   rag?: 'Minimal' | 'Minor' | 'Significant';
   notes?: string;
+  panoramas?: Panorama[];
+  panoramaCount?: number;
 }
 
 const MOCK_NODES = ["G-101", "G-102", "G-103", "F1-201", "F1-202", "F2-301"];
@@ -100,7 +107,37 @@ const Index = () => {
     setActiveTab("viewer");
   };
 
-  const handleFloorPlanUpload = (file: File) => {
+  const handleFloorPlanUpload = async (file: File) => {
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const dpi = 200; // ~200 DPI
+        const viewport = page.getViewport({ scale: dpi / 72 });
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas not supported');
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const blob: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b as Blob), 'image/png')!);
+        const imageUrl = URL.createObjectURL(blob);
+        const newFloorPlan: FloorPlan = {
+          id: `fp-${Date.now()}`,
+          imageUrl,
+          width: canvas.width,
+          height: canvas.height,
+          rooms: []
+        };
+        setFloorPlan(newFloorPlan);
+      } catch (e) {
+        console.error('Failed to rasterize PDF', e);
+      }
+      return;
+    }
+
+    // Fallback: image file
     const imageUrl = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {

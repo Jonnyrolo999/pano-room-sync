@@ -100,8 +100,8 @@ export const FloorPlanEditor = ({
     if (!pos) return;
 
     const newPoint = { 
-      x: (pos.x - stagePos.x) / scale, 
-      y: (pos.y - stagePos.y) / scale 
+      x: pos.x / scale, 
+      y: pos.y / scale 
     };
 
     // Check if we're closing the polygon (click near first point)
@@ -182,8 +182,8 @@ export const FloorPlanEditor = ({
       if (room.id === roomId) {
         const newPolygon = [...room.polygon];
         newPolygon[vertexIndex] = {
-          x: (newPos.x - stagePos.x) / scale,
-          y: (newPos.y - stagePos.y) / scale
+          x: newPos.x / scale,
+          y: newPos.y / scale
         };
         return { ...room, polygon: newPolygon };
       }
@@ -194,7 +194,7 @@ export const FloorPlanEditor = ({
 
   // Render polygon
   const renderPolygon = (points: Point[], color: string, isSelected: boolean = false) => {
-    const flatPoints = points.flatMap(p => [p.x * scale + stagePos.x, p.y * scale + stagePos.y]);
+    const flatPoints = points.flatMap(p => [p.x * scale, p.y * scale]);
     
     return (
       <>
@@ -223,8 +223,8 @@ export const FloorPlanEditor = ({
     return room.polygon.map((point, index) => (
       <Circle
         key={index}
-        x={point.x * scale + stagePos.x}
-        y={point.y * scale + stagePos.y}
+        x={point.x * scale}
+        y={point.y * scale}
         radius={6}
         fill="#3b82f6"
         stroke="#ffffff"
@@ -488,8 +488,8 @@ export const FloorPlanEditor = ({
                   {/* Room label */}
                   {room.polygon.length > 0 && (
                     <Text
-                      x={room.polygon[0].x * scale + stagePos.x}
-                      y={room.polygon[0].y * scale + stagePos.y - 20}
+                      x={room.polygon[0].x * scale}
+                      y={room.polygon[0].y * scale - 20}
                       text={room.name}
                       fontSize={12}
                       fill="#000"
@@ -506,8 +506,8 @@ export const FloorPlanEditor = ({
               {currentPolygon.map((point, index) => (
                 <Circle
                   key={index}
-                  x={point.x * scale + stagePos.x}
-                  y={point.y * scale + stagePos.y}
+                  x={point.x * scale}
+                  y={point.y * scale}
                   radius={4}
                   fill="#3b82f6"
                 />

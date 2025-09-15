@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FloorPlanCanvas } from "@/components/floorplan/FloorPlanCanvas";
+import { FloorPlanView } from "@/components/viewer/FloorPlanView";
 import { PanoramaViewer } from "@/components/panorama/PanoramaViewer";
 import { ViewerPanel } from "@/components/viewer/ViewerPanel";
 
@@ -188,11 +188,9 @@ export const ThreePaneViewer = ({
           </CardHeader>
           <CardContent className="flex-1 p-0">
             <div className="h-full">
-              <FloorPlanCanvas
+              <FloorPlanView
                 floorPlan={floorPlan}
-                onFloorPlanUpload={() => {}}
-                onRoomUpdate={() => {}}
-                selectedRoomId={selectedRoomId || undefined}
+                selectedRoomId={selectedRoomId}
                 onRoomSelect={onRoomSelect}
               />
             </div>
