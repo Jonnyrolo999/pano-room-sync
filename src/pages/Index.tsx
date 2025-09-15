@@ -5,6 +5,8 @@ import { RoomsTable } from "@/components/rooms/RoomsTable";
 import { AssignmentInterface } from "@/components/assign/AssignmentInterface";
 import { ViewerPanel } from "@/components/viewer/ViewerPanel";
 import { PanoramasManager } from "@/components/panoramas/PanoramasManager";
+import { PanoramaViewer } from "@/components/panorama/PanoramaViewer";
+import { FloorPlanCanvas } from "@/components/floorplan/FloorPlanCanvas";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +27,31 @@ interface Panorama {
   nodeId: string;
   title: string;
   floor?: string;
+  fileName?: string;
+  imageUrl?: string;
+  width?: number;
+  height?: number;
+  yawOffset?: number;
+  pitchOffset?: number;
+  rollOffset?: number;
+  metadata?: any;
+}
+
+interface FloorPlan {
+  id: string;
+  imageUrl: string;
+  width: number;
+  height: number;
+  rooms: FloorPlanRoom[];
+}
+
+interface FloorPlanRoom {
+  id: string;
+  name: string;
+  polygon: { x: number; y: number }[];
+  level?: string;
+  rag?: 'Minimal' | 'Minor' | 'Significant';
+  notes?: string;
 }
 
 const MOCK_NODES = ["G-101", "G-102", "G-103", "F1-201", "F1-202", "F2-301"];
@@ -37,6 +64,7 @@ const Index = () => {
   const [panoramas, setPanoramas] = useState<Panorama[]>([]);
   const [currentNodeId, setCurrentNodeId] = useState("G-101");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(null);
 
   useEffect(() => {
     // Keep current node valid if panoramas list changes
@@ -68,6 +96,32 @@ const Index = () => {
   const handleRoomSelect = (roomId: string) => {
     setSelectedRoomId(roomId);
     setActiveTab("viewer");
+  };
+
+  const handleFloorPlanUpload = (file: File) => {
+    const imageUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const newFloorPlan: FloorPlan = {
+        id: `fp-${Date.now()}`,
+        imageUrl,
+        width: img.width,
+        height: img.height,
+        rooms: []
+      };
+      setFloorPlan(newFloorPlan);
+    };
+    img.src = imageUrl;
+  };
+
+  const handleRoomsUpdate = (rooms: FloorPlanRoom[]) => {
+    if (floorPlan) {
+      setFloorPlan({ ...floorPlan, rooms });
+    }
+  };
+
+  const handleFloorPlanRoomSelect = (roomId: string | null) => {
+    setSelectedRoomId(roomId);
   };
 
   const getCurrentRoom = (): Room | null => {
@@ -109,6 +163,17 @@ const Index = () => {
           />
         );
       
+      case "floorplan":
+        return (
+          <FloorPlanCanvas
+            floorPlan={floorPlan}
+            onFloorPlanUpload={handleFloorPlanUpload}
+            onRoomUpdate={handleRoomsUpdate}
+            selectedRoomId={selectedRoomId}
+            onRoomSelect={handleFloorPlanRoomSelect}
+          />
+        );
+      
       case "panoramas":
         return (
           <PanoramasManager
@@ -140,57 +205,26 @@ const Index = () => {
         );
       
       case "viewer":
-        const nodeOptions = panoramas.length > 0 ? panoramas.map(p => p.nodeId) : MOCK_NODES;
         return (
           <div className="flex gap-6 h-[calc(100vh-8rem)]">
-            {/* Viewer Area */}
+            {/* Left Column: Floor Plan */}
+            <div className="w-2/5">
+              <FloorPlanCanvas
+                floorPlan={floorPlan}
+                onFloorPlanUpload={handleFloorPlanUpload}
+                onRoomUpdate={handleRoomsUpdate}
+                selectedRoomId={selectedRoomId}
+                onRoomSelect={handleFloorPlanRoomSelect}
+              />
+            </div>
+            
+            {/* Right Column: Panorama Viewer */}
             <div className="flex-1">
-              <Card className="h-full">
-                <CardContent className="p-6 h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center space-x-4">
-                      <h3 className="text-xl font-semibold">Panorama Viewer</h3>
-                      <Badge variant="outline" className="font-mono">
-                        {currentNodeId}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Select value={currentNodeId} onValueChange={setCurrentNodeId}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Select node" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {nodeOptions.map(nodeId => (
-                            <SelectItem key={nodeId} value={nodeId}>
-                              {nodeId}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  {/* Mock Panorama Viewer */}
-                  <div className="flex-1 bg-gradient-subtle rounded-lg border-2 border-dashed border-border flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                        <Play className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium">360° Panorama Viewer</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Interactive panoramic view would load here
-                        </p>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Reset View
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <PanoramaViewer
+                panoramas={panoramas}
+                currentNodeId={currentNodeId}
+                onPanoramaChange={setCurrentNodeId}
+              />
             </div>
             
             {/* Room Info Panel */}

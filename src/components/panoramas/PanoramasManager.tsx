@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
-import { Upload, Image as ImageIcon, Trash2, CheckCircle2, AlertCircle, Edit3 } from "lucide-react";
+import { Upload, Image as ImageIcon, Trash2, CheckCircle2, AlertCircle, Edit3, RotateCw } from "lucide-react";
+import * as exifr from "exifr";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,12 @@ export interface PanoramaItem {
   floor?: string;
   fileName?: string;
   imageUrl?: string;
+  width?: number;
+  height?: number;
+  yawOffset?: number;
+  pitchOffset?: number;
+  rollOffset?: number;
+  metadata?: any;
 }
 
 interface PanoramasManagerProps {
@@ -69,11 +76,68 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
           const title = generateTitleFromFileName(file.name);
           const imageUrl = URL.createObjectURL(file);
           
-          items.push({
-            nodeId,
-            title,
-            fileName: file.name,
-            imageUrl
+          // Validate image dimensions and extract metadata
+          const img = new Image();
+          await new Promise<void>((resolve, reject) => {
+            img.onload = async () => {
+              try {
+                // Check if it's roughly 2:1 aspect ratio for equirectangular
+                const aspectRatio = img.width / img.height;
+                if (Math.abs(aspectRatio - 2) > 0.2) {
+                  setMessage({ 
+                    type: "error", 
+                    text: `${file.name}: Invalid aspect ratio (${aspectRatio.toFixed(2)}). Expected ~2:1 for equirectangular panoramas.` 
+                  });
+                  reject(new Error("Invalid aspect ratio"));
+                  return;
+                }
+
+                // Extract EXIF/XMP metadata
+                let metadata = {};
+                let yawOffset = 0;
+                let pitchOffset = 0;
+                let rollOffset = 0;
+
+                try {
+                  const exifData = await exifr.parse(file, { 
+                    gps: true, 
+                    xmp: true, 
+                    icc: false,
+                    jfif: false 
+                  });
+                  
+                  if (exifData) {
+                    metadata = exifData;
+                    // Look for Google Photo Sphere XMP data
+                    if (exifData.GPano) {
+                      yawOffset = exifData.GPano.PoseHeadingDegrees || exifData.GPano.InitialViewHeadingDegrees || 0;
+                      pitchOffset = exifData.GPano.PosePitchDegrees || 0;
+                      rollOffset = exifData.GPano.PoseRollDegrees || 0;
+                    }
+                  }
+                } catch (exifError) {
+                  console.warn("Failed to extract EXIF data:", exifError);
+                }
+
+                items.push({
+                  nodeId,
+                  title,
+                  fileName: file.name,
+                  imageUrl,
+                  width: img.width,
+                  height: img.height,
+                  yawOffset,
+                  pitchOffset,
+                  rollOffset,
+                  metadata
+                });
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            };
+            img.onerror = () => reject(new Error("Failed to load image"));
+            img.src = imageUrl;
           });
         }
       }
@@ -83,7 +147,7 @@ export const PanoramasManager = ({ panoramas, onChange }: PanoramasManagerProps)
       }
       
       upsertPanoramas(items);
-      setMessage({ type: "success", text: `Added ${items.length} panorama${items.length > 1 ? 's' : ''}` });
+      setMessage({ type: "success", text: `Added ${items.length} panorama${items.length > 1 ? 's' : ''} with metadata` });
     } catch (e) {
       setMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to process files" });
     } finally {
